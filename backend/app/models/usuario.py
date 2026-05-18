@@ -12,4 +12,4 @@ class Usuario(Base):
     contrasena = Column(String, nullable=False)
     rol = Column(Enum("alumno", "docente", "padre", name="rol_enum"), nullable=False)
     nombre = Column(String, nullable=False)
-    creado_en = Column(DateTime, default=datetime.utcnow)
+    creado_en = Column(DateTime, default=datetime.utcnow)git add .
