@@ -7,10 +7,9 @@ from sklearn.preprocessing import LabelEncoder
 import joblib
 import os
 
-MODEL_PATH = "/tmp/peaml_model.joblib"
-ENCODER_PATH = "/tmp/peaml_encoders.joblib"
-
-
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "peaml_model.joblib")
+ENCODER_PATH = os.path.join(BASE_DIR, "peaml_encoders.joblib")
 def generate_dataset(n=500):
     np.random.seed(42)
     profiles = ["TEA", "TDAH", "dislexia", "general"]
