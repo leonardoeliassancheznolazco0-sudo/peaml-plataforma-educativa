@@ -85,9 +85,15 @@ def train_model():
 def load_model():
     if not os.path.exists(MODEL_PATH):
         train_model()
-    model = joblib.load(MODEL_PATH)
-    encoders = joblib.load(ENCODER_PATH)
-    return model, encoders
+    try:
+        model = joblib.load(MODEL_PATH)
+        encoders = joblib.load(ENCODER_PATH)
+        return model, encoders
+    except Exception:
+        train_model()
+        model = joblib.load(MODEL_PATH)
+        encoders = joblib.load(ENCODER_PATH)
+        return model, encoders
 
 
 def predict_level(student_data: dict) -> dict:
