@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import auth, users, students, assessments, contents, recommendations, ml, dashboard
+from app.api.v1.endpoints import users_management
 
 router = APIRouter()
 
@@ -11,3 +12,4 @@ router.include_router(contents.router, prefix="/contents", tags=["Contents"])
 router.include_router(recommendations.router, prefix="/recommendations", tags=["Recommendations"])
 router.include_router(ml.router, prefix="/ml", tags=["ML"])
 router.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
+router.include_router(users_management.router, prefix="/manage", tags=["Management"])

@@ -13,20 +13,19 @@ def seed_initial_data():
 
         # Admin
         admin = User(name="Administrador PEAML", email="admin@peaml.edu",
-                     password_hash=get_password_hash("admin123"), role="admin")
+                     password_hash=get_password_hash("admin123"), role="admin",
+                     status="active")
         db.add(admin)
+        db.flush()
 
         # Docentes
         teacher = User(name="Prof. María García", email="docente@peaml.edu",
-                       password_hash=get_password_hash("docente123"), role="teacher")
+                       password_hash=get_password_hash("docente123"), role="teacher",
+                       status="active", created_by=admin.id)
         teacher2 = User(name="Prof. Carlos López", email="docente2@peaml.edu",
-                        password_hash=get_password_hash("docente123"), role="teacher")
+                        password_hash=get_password_hash("docente123"), role="teacher",
+                        status="active", created_by=admin.id)
         db.add_all([teacher, teacher2])
-
-        # Padre
-        padre = User(name="Roberto Pérez", email="padre@peaml.edu",
-                     password_hash=get_password_hash("padre123"), role="parent")
-        db.add(padre)
         db.flush()
 
         # 24 estudiantes
@@ -59,11 +58,13 @@ def seed_initial_data():
 
         for name, email, age, profile, pref in students_data:
             user = User(name=name, email=email,
-                        password_hash=get_password_hash("estudiante123"), role="student")
+                        password_hash=get_password_hash("estudiante123"), role="student",
+                        status="active", created_by=teacher.id)
             db.add(user)
             db.flush()
             student = Student(user_id=user.id, age=age,
-                              cognitive_profile=profile, learning_preference=pref)
+                              cognitive_profile=profile, learning_preference=pref,
+                              assigned_by=teacher.id)
             db.add(student)
 
         # Contenidos
