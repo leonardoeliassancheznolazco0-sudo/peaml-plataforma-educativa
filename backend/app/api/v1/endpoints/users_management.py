@@ -6,12 +6,12 @@ from typing import Optional
 from app.db.database import get_db
 from app.models.user import User
 from app.models.student import Student
-from app.core.security import get_password_hash, require_admin, require_teacher, get_current_user
+from app.core.security import get_password_hash, require_admin, require_teacher
 
 router = APIRouter()
 
 
-# ── Schemas ──────────────────────────────────────────────────────────────────
+# ── Schemas ───────────────────────────────────────────────────────────────────
 class CreateTeacherRequest(BaseModel):
     name: str
     email: EmailStr
@@ -44,7 +44,6 @@ def create_teacher(
 ):
     if db.query(User).filter(User.email == data.email).first():
         raise HTTPException(status_code=400, detail="Email ya registrado")
-
     teacher = User(
         name=data.name,
         email=data.email,
@@ -78,6 +77,29 @@ def list_teachers(
     ]
 
 
+# ── Admin: listar todos los estudiantes ──────────────────────────────────────
+@router.get("/admin/students")
+def list_all_students(
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    users = db.query(User).filter(User.role == "student").all()
+    result = []
+    for u in users:
+        student = db.query(Student).filter(Student.user_id == u.id).first()
+        result.append({
+            "id": u.id,
+            "name": u.name,
+            "email": u.email,
+            "status": u.status,
+            "age": student.age if student else None,
+            "cognitive_profile": student.cognitive_profile if student else None,
+            "current_level": student.current_level if student else None,
+            "created_at": str(u.created_at),
+        })
+    return result
+
+
 # ── Admin: activar/desactivar usuario ────────────────────────────────────────
 @router.patch("/admin/users/{user_id}/status")
 def update_user_status(
@@ -88,16 +110,14 @@ def update_user_status(
 ):
     if status not in ["active", "inactive", "trial"]:
         raise HTTPException(status_code=400, detail="Estado inválido")
-
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     if user.role == "admin":
         raise HTTPException(status_code=403, detail="No puedes modificar un administrador")
-
     user.status = status
     db.commit()
-    return {"message": f"Usuario {status}", "id": user_id}
+    return {"message": f"Usuario actualizado a {status}", "id": user_id}
 
 
 # ── Admin: listar usuarios trial ──────────────────────────────────────────────
@@ -128,7 +148,6 @@ def create_student(
 ):
     if db.query(User).filter(User.email == data.email).first():
         raise HTTPException(status_code=400, detail="Email ya registrado")
-
     user = User(
         name=data.name,
         email=data.email,
@@ -139,7 +158,6 @@ def create_student(
     )
     db.add(user)
     db.flush()
-
     student = Student(
         user_id=user.id,
         age=data.age,
@@ -154,6 +172,54 @@ def create_student(
     return {"message": "Estudiante creado exitosamente", "id": user.id}
 
 
+# ── Docente: listar sus estudiantes ──────────────────────────────────────────
+@router.get("/teacher/students")
+def list_my_students(
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    users = db.query(User).filter(
+        User.role == "student",
+        User.created_by == current_user.id
+    ).all()
+    result = []
+    for u in users:
+        student = db.query(Student).filter(Student.user_id == u.id).first()
+        result.append({
+            "id": u.id,
+            "student_id": student.id if student else None,
+            "name": u.name,
+            "email": u.email,
+            "status": u.status,
+            "age": student.age if student else None,
+            "cognitive_profile": student.cognitive_profile if student else None,
+            "learning_preference": student.learning_preference if student else None,
+            "current_level": student.current_level if student else None,
+            "created_at": str(u.created_at),
+        })
+    return result
+
+
+# ── Docente: activar/desactivar sus estudiantes ───────────────────────────────
+@router.patch("/teacher/students/{user_id}/status")
+def update_my_student_status(
+    user_id: int,
+    status: str,
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    if status not in ["active", "inactive"]:
+        raise HTTPException(status_code=400, detail="Estado inválido")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    if user.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Solo puedes modificar tus propios estudiantes")
+    user.status = status
+    db.commit()
+    return {"message": f"Estudiante {status}", "id": user_id}
+
+
 # ── Docente: actualizar perfil de estudiante ──────────────────────────────────
 @router.patch("/teacher/students/{student_id}")
 def update_student_profile(
@@ -165,7 +231,6 @@ def update_student_profile(
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")
-
     if data.age is not None:
         student.age = data.age
     if data.cognitive_profile is not None:
@@ -174,6 +239,5 @@ def update_student_profile(
         student.learning_preference = data.learning_preference
     if data.current_level is not None:
         student.current_level = data.current_level
-
     db.commit()
     return {"message": "Perfil actualizado exitosamente"}

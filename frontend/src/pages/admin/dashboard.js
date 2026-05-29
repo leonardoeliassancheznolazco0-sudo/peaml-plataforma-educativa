@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import DashboardLayout from "../../components/layout/DashboardLayout";
-import { dashboardAPI, mlAPI } from "../../services/api";
+import { dashboardAPI, mlAPI, managementAPI } from "../../services/api";
 import { Users, BookOpen, ClipboardList, Activity, CheckCircle, RefreshCw } from "lucide-react";
 
 export default function AdminDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [retraining, setRetraining] = useState(false);
+  const [students, setStudents] = useState([]);
   const [trainResult, setTrainResult] = useState(null);
 
   useEffect(() => {
     dashboardAPI.admin().then(r => setData(r.data)).catch(() => {}).finally(() => setLoading(false));
+    managementAPI.listAllStudents().then(r => setStudents(r.data)).catch(() => {});
   }, []);
 
   const handleRetrain = async () => {
@@ -70,6 +73,49 @@ export default function AdminDashboard() {
               })}
             </div>
           </div>
+
+{/* Graficos */}
+{students.length > 0 && (() => {
+  const profileData = ["TEA","TDAH","dislexia","general"].map(p => ({
+    name: p, value: students.filter(s => s.cognitive_profile === p).length
+  })).filter(d => d.value > 0);
+
+  const levelData = ["basico","intermedio","avanzado"].map(l => ({
+    name: l.charAt(0).toUpperCase() + l.slice(1),
+    cantidad: students.filter(s => s.current_level === l).length
+  }));
+
+  const COLORS = ["#2563eb","#f97316","#9333ea","#6b7280"];
+
+  return (
+    <div className="grid md:grid-cols-2 gap-6 mb-6">
+      <div className="card">
+        <h2 className="font-bold text-gray-700 mb-4">Distribución de Perfiles Cognitivos</h2>
+        <ResponsiveContainer width="100%" height={220}>
+          <PieChart>
+            <Pie data={profileData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({name, value}) => `${name}: ${value}`}>
+              {profileData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            </Pie>
+            <Tooltip />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="card">
+        <h2 className="font-bold text-gray-700 mb-4">Estudiantes por Nivel</h2>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={levelData}>
+            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+            <YAxis tick={{ fontSize: 12 }} />
+            <Tooltip />
+            <Bar dataKey="cantidad" fill="#2563eb" radius={[4,4,0,0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+})()}
+
+
 
           <div className="card">
             <h2 className="font-bold text-gray-700 mb-4">Estado del Sistema</h2>
