@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import DashboardLayout from "../components/layout/DashboardLayout";
-import { managementAPI } from "../services/api";
+import { managementAPI, studentsAPI } from "../services/api";
 import { UserPlus, CheckCircle, XCircle, RefreshCw, Search } from "lucide-react";
 
 const statusBadge = (status) => {
@@ -21,6 +21,7 @@ export default function TeacherStudents() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [msg, setMsg] = useState(null);
+  const [mode, setMode] = useState("mine");
 
   const [search, setSearch] = useState("");
   const [filterProfile, setFilterProfile] = useState("all");
@@ -36,13 +37,15 @@ export default function TeacherStudents() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const r = await managementAPI.listMyStudents();
+      const r = mode === "mine"
+        ? await managementAPI.listMyStudents()
+        : await studentsAPI.list();
       setStudents(r.data);
     } catch {}
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [mode]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -77,7 +80,6 @@ export default function TeacherStudents() {
 
   const filtered = useMemo(() => {
     let result = [...students];
-
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(s =>
@@ -88,11 +90,9 @@ export default function TeacherStudents() {
         String(s.age || "").includes(q)
       );
     }
-
     if (filterProfile !== "all") result = result.filter(s => s.cognitive_profile === filterProfile);
     if (filterLevel !== "all") result = result.filter(s => s.current_level === filterLevel);
     if (filterStatus !== "all") result = result.filter(s => s.status === filterStatus);
-
     result.sort((a, b) => {
       switch (sortBy) {
         case "name_asc": return (a.name || "").localeCompare(b.name || "");
@@ -104,25 +104,42 @@ export default function TeacherStudents() {
         default: return 0;
       }
     });
-
     return result;
   }, [students, search, filterProfile, filterLevel, filterStatus, sortBy]);
 
   return (
-    <DashboardLayout title="Mis Estudiantes">
+    <DashboardLayout title="Estudiantes">
       <div className="p-8">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-black text-gray-800">Mis Estudiantes</h1>
-            <p className="text-gray-500 mt-1">{students.length} estudiantes asignados</p>
+            <h1 className="text-2xl font-black text-gray-800">
+              {mode === "mine" ? "Mis Estudiantes" : "Todos los Estudiantes"}
+            </h1>
+            <p className="text-gray-500 mt-1">{students.length} estudiantes</p>
+            <div className="flex gap-2 mt-2">
+              <button onClick={() => { setMode("mine"); resetFilters(); }}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                  mode === "mine" ? "bg-primary-600 text-white" : "bg-white border border-gray-200 text-gray-600 hover:border-primary-300"
+                }`}>
+                Mis estudiantes
+              </button>
+              <button onClick={() => { setMode("all"); resetFilters(); }}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                  mode === "all" ? "bg-primary-600 text-white" : "bg-white border border-gray-200 text-gray-600 hover:border-primary-300"
+                }`}>
+                Todos los estudiantes
+              </button>
+            </div>
           </div>
           <div className="flex gap-3">
             <button onClick={fetchData} className="btn-secondary flex items-center gap-2 text-sm">
               <RefreshCw className="w-4 h-4" /> Actualizar
             </button>
-            <button onClick={() => setShowForm(!showForm)} className="btn-primary flex items-center gap-2">
-              <UserPlus className="w-4 h-4" /> Nuevo Estudiante
-            </button>
+            {mode === "mine" && (
+              <button onClick={() => setShowForm(!showForm)} className="btn-primary flex items-center gap-2">
+                <UserPlus className="w-4 h-4" /> Nuevo Estudiante
+              </button>
+            )}
           </div>
         </div>
 
@@ -135,7 +152,7 @@ export default function TeacherStudents() {
           </div>
         )}
 
-        {showForm && (
+        {showForm && mode === "mine" && (
           <div className="card mb-6">
             <h2 className="font-bold text-gray-700 mb-4">Crear nuevo estudiante</h2>
             <form onSubmit={handleCreate} className="grid md:grid-cols-2 gap-4">
@@ -196,7 +213,6 @@ export default function TeacherStudents() {
           </div>
         )}
 
-        {/* Filtros */}
         <div className="card mb-5">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <div className="relative md:col-span-3">
@@ -231,15 +247,14 @@ export default function TeacherStudents() {
               <option value="level_asc">Nivel A-Z</option>
               <option value="status">Estado</option>
             </select>
-            <button onClick={resetFilters} className="btn-secondary text-sm">
-              Limpiar filtros
-            </button>
+            <button onClick={resetFilters} className="btn-secondary text-sm">Limpiar filtros</button>
           </div>
         </div>
 
         <div className="card">
           <p className="text-xs text-gray-400 mb-3">
-            {filtered.length} resultado(s) · ⚠ Desactivar conserva historial y evaluaciones
+            {filtered.length} resultado(s)
+            {mode === "mine" && " · ⚠ Desactivar conserva historial y evaluaciones"}
           </p>
           {loading ? (
             <div className="text-center text-gray-400 py-8">Cargando...</div>
@@ -250,7 +265,7 @@ export default function TeacherStudents() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100">
-                    {["Nombre", "Email", "Perfil", "Preferencia", "Nivel", "Edad", "Estado", "Acción"].map(h => (
+                    {["Nombre", "Email", "Perfil", "Preferencia", "Nivel", "Edad", "Estado", mode === "mine" ? "Acción" : ""].map(h => (
                       <th key={h} className="text-left text-gray-500 font-semibold pb-3 pr-4">{h}</th>
                     ))}
                   </tr>
@@ -273,15 +288,17 @@ export default function TeacherStudents() {
                       </td>
                       <td className="py-3 pr-4 text-gray-600">{s.age ? `${s.age} años` : "—"}</td>
                       <td className="py-3 pr-4">{statusBadge(s.status)}</td>
-                      <td className="py-3">
-                        {s.status !== "inactive" ? (
-                          <button onClick={() => handleStatus(s.id, "inactive")}
-                            className="text-xs text-red-600 hover:underline font-medium">Desactivar</button>
-                        ) : (
-                          <button onClick={() => handleStatus(s.id, "active")}
-                            className="text-xs text-green-600 hover:underline font-medium">Activar</button>
-                        )}
-                      </td>
+                      {mode === "mine" && (
+                        <td className="py-3">
+                          {s.status !== "inactive" ? (
+                            <button onClick={() => handleStatus(s.id, "inactive")}
+                              className="text-xs text-red-600 hover:underline font-medium">Desactivar</button>
+                          ) : (
+                            <button onClick={() => handleStatus(s.id, "active")}
+                              className="text-xs text-green-600 hover:underline font-medium">Activar</button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
