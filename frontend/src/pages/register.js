@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import Head from "next/head";
 import { authAPI } from "../services/api";
-import { Brain, AlertCircle, CheckCircle } from "lucide-react";
+import { Brain, AlertCircle, CheckCircle, Info } from "lucide-react";
 
 export default function RegisterPage() {
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "student" });
@@ -21,7 +21,7 @@ export default function RegisterPage() {
     try {
       await authAPI.register(form);
       setSuccess(true);
-      setTimeout(() => router.push("/login"), 2000);
+      setTimeout(() => router.push("/login"), 3000);
     } catch (err) {
       setError(err.response?.data?.detail || "Error al registrarse");
     } finally {
@@ -44,16 +44,34 @@ export default function RegisterPage() {
           </div>
 
           <div className="card shadow-lg">
-            <h1 className="text-2xl font-black text-gray-800 mb-6">Crear cuenta</h1>
+            <h1 className="text-2xl font-black text-gray-800 mb-2">Crear cuenta</h1>
+            <p className="text-sm text-gray-500 mb-6">Registro público solo para estudiantes</p>
+
+            <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl p-3 mb-5 text-xs text-blue-700">
+              <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>
+                El registro público crea una cuenta en <strong>modo prueba</strong>.
+                Los <strong>docentes</strong> son creados por el administrador.
+                Los <strong>estudiantes formalizados</strong> son creados por los docentes.
+              </span>
+            </div>
 
             {error && (
               <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 mb-4 text-sm">
-                <AlertCircle className="w-4 h-4" /> {error}
+                <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
               </div>
             )}
+
             {success && (
-              <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded-xl p-3 mb-4 text-sm">
-                <CheckCircle className="w-4 h-4" /> ¡Cuenta creada! Redirigiendo...
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4">
+                <div className="flex items-center gap-2 text-yellow-800 font-bold mb-2">
+                  <CheckCircle className="w-4 h-4" /> ¡Cuenta creada en modo prueba!
+                </div>
+                <p className="text-yellow-700 text-xs leading-relaxed">
+                  Tu cuenta está en <strong>modo prueba</strong>. Puedes explorar la plataforma,
+                  pero algunas funciones estarán limitadas hasta que un administrador formalice tu cuenta.
+                  Redirigiendo al login...
+                </p>
               </div>
             )}
 
@@ -73,14 +91,12 @@ export default function RegisterPage() {
                 <input name="password" type="password" value={form.password} onChange={handleChange} required
                   placeholder="Mínimo 6 caracteres" minLength={6} className="input-field" />
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Rol</label>
-                <select name="role" value={form.role} onChange={handleChange} className="input-field bg-white">
-                  <option value="student">Estudiante</option>
-                  <option value="teacher">Docente</option>
-                  <option value="admin">Administrador</option>
-                </select>
+
+              <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-600 flex items-center gap-2">
+                <span>Rol asignado:</span>
+                <span className="font-semibold text-primary-700">Estudiante (modo prueba)</span>
               </div>
+
               <button type="submit" disabled={loading} className="btn-primary w-full">
                 {loading ? "Creando cuenta..." : "Registrarme"}
               </button>
