@@ -55,5 +55,20 @@ export const dashboardAPI = {
 export const healthAPI = {
   check: () => axios.get(`${API_URL}/health`),
 };
+// Management
+export const managementAPI = {
+  // Admin
+  createTeacher: (data) => api.post("/manage/admin/teachers", data),
+  listTeachers: () => api.get("/manage/admin/teachers"),
+  listAllStudents: () => api.get("/manage/admin/students"),
+  updateUserStatus: (userId, status) => api.patch(`/manage/admin/users/${userId}/status?status=${status}`),
+  listTrialUsers: () => api.get("/manage/admin/users/trial"),
+  // Teacher
+  createStudent: (data) => api.post("/manage/teacher/students", data),
+  listMyStudents: () => api.get("/manage/teacher/students"),
+  updateStudentProfile: (studentId, data) => api.patch(`/manage/teacher/students/${studentId}`, data),
+  updateMyStudentStatus: (userId, status) => api.patch(`/manage/teacher/students/${userId}/status?status=${status}`),
+
+};
 
 export default api;
