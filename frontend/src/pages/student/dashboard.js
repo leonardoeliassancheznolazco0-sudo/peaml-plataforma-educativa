@@ -53,7 +53,7 @@ export default function StudentDashboard() {
     <DashboardLayout title="Mi Panel">
       <div className="p-8">
         <div className="mb-8">
-          <h1 className="text-2xl font-black text-gray-800">¡Hola, {data?.name || user?.name}! 👋</h1>
+          <h1 className="text-2xl font-black text-gray-800">¡Hola, {data?.name || user?.name}! </h1>
           <p className="text-gray-500 mt-1">Aquí puedes ver tu progreso y acceder a contenidos personalizados.</p>
         </div>
 
