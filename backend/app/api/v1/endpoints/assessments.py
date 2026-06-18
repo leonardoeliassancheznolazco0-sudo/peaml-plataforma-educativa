@@ -6,7 +6,6 @@ from app.models.content import Assessment
 from app.models.student import Student
 from app.models.user import User
 from app.schemas.schemas import AssessmentCreate
-from app.ml.model import predict_level
 from app.core.security import get_current_user, require_student
 
 router = APIRouter()
@@ -23,30 +22,31 @@ def create_assessment(
         raise HTTPException(status_code=404, detail="Perfil de estudiante no encontrado")
     if student.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="No puedes crear evaluaciones para otro estudiante")
+    if student.assessment_done:
+        raise HTTPException(status_code=400, detail="Ya completaste tu evaluación inicial")
 
-    prediction = predict_level({
-        "age": student.age or 9,
-        "cognitive_profile": data.cognitive_profile,
-        "porcentaje_aciertos": data.score,
-        "tiempo_respuesta_promedio": data.response_time,
-        "intentos": data.attempts,
-        "preferencia_contenido": data.learning_preference,
-    })
+    # El PERFIL lo decide el humano: si el docente lo confirmó, su diagnóstico oficial manda
+    # y el autoreporte del estudiante NO lo sobreescribe. Si no, se toma el autoreporte.
+    if not student.diagnosis_confirmed:
+        student.cognitive_profile = data.cognitive_profile
+    student.learning_preference = data.learning_preference
+
+    # El nivel se gana resolviendo quizzes reales; la evaluación inicial deja el nivel actual
+    # como punto de partida (no se usa el árbol sintético).
+    nivel_inicial = student.current_level or "basico"
 
     assessment = Assessment(
         student_id=data.student_id,
         score=data.score,
         response_time=data.response_time,
         attempts=data.attempts,
-        cognitive_profile=data.cognitive_profile,
-        learning_preference=data.learning_preference,
-        predicted_level=prediction["nivel_recomendado"],
+        cognitive_profile=student.cognitive_profile,
+        learning_preference=student.learning_preference,
+        predicted_level=nivel_inicial,
     )
     db.add(assessment)
 
-    student.cognitive_profile = data.cognitive_profile
-    student.learning_preference = data.learning_preference
-    student.current_level = prediction["nivel_recomendado"]
+    student.assessment_done = True
     student.sessions_count = (student.sessions_count or 0) + 1
 
     db.commit()

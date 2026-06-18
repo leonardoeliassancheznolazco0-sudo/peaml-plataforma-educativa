@@ -33,6 +33,8 @@ class UpdateStudentRequest(BaseModel):
     cognitive_profile: Optional[str] = None
     learning_preference: Optional[str] = None
     current_level: Optional[str] = None
+    diagnosis_confirmed: Optional[bool] = None
+    assessment_done: Optional[bool] = None
 
 
 # ── Admin: crear docente ──────────────────────────────────────────────────────
@@ -195,6 +197,8 @@ def list_my_students(
             "cognitive_profile": student.cognitive_profile if student else None,
             "learning_preference": student.learning_preference if student else None,
             "current_level": student.current_level if student else None,
+            "diagnosis_confirmed": student.diagnosis_confirmed if student else False,
+            "assessment_done": student.assessment_done if student else False,
             "created_at": str(u.created_at),
         })
     return result
@@ -239,5 +243,9 @@ def update_student_profile(
         student.learning_preference = data.learning_preference
     if data.current_level is not None:
         student.current_level = data.current_level
+    if data.diagnosis_confirmed is not None:
+        student.diagnosis_confirmed = data.diagnosis_confirmed
+    if data.assessment_done is not None:
+        student.assessment_done = data.assessment_done
     db.commit()
     return {"message": "Perfil actualizado exitosamente"}

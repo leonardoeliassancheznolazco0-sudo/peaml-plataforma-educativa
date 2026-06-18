@@ -44,6 +44,8 @@ class StudentOut(BaseModel):
     current_level: Optional[str]
     total_score: Optional[float]
     sessions_count: Optional[int]
+    diagnosis_confirmed: Optional[bool] = None
+    assessment_done: Optional[bool] = None
 
     class Config:
         from_attributes = True

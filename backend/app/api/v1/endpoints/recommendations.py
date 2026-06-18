@@ -30,7 +30,7 @@ def get_recommendations(
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")
 
     # el caché incluye el nivel para refrescar cuando el estudiante sube/baja
-    cache_key = f"recs:{student_id}:{student.current_level or 'basico'}"
+    cache_key = f"recs:{student_id}:{student.current_level or 'basico'}:{student.cognitive_profile or 'general'}"
     cached = cache_get(cache_key)
     if cached:
         return cached

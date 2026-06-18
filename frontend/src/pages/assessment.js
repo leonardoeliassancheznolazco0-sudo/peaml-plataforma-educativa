@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
 import { useAuth } from "../context/AuthContext";
 import DashboardLayout from "../components/layout/DashboardLayout";
-import { assessmentsAPI } from "../services/api";
+import { assessmentsAPI, studentsAPI } from "../services/api";
 import { CheckCircle, ChevronRight, Brain, AlertCircle } from "lucide-react";
 
 const QUESTIONS = [
@@ -48,6 +48,16 @@ export default function AssessmentPage() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState(null);
+  const [alreadyDone, setAlreadyDone] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    if (!user || user.role !== "student") { setChecking(false); return; }
+    studentsAPI.me()
+      .then((r) => setAlreadyDone(!!r.data?.assessment_done))
+      .catch(() => {})
+      .finally(() => setChecking(false));
+  }, [user]);
 
   const q = QUESTIONS[step];
 
@@ -109,6 +119,29 @@ export default function AssessmentPage() {
           <div className="flex items-center gap-3 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl p-4">
             <AlertCircle className="w-5 h-5 flex-shrink-0" />
             La evaluación diagnóstica solo está disponible para estudiantes.
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (checking) {
+    return (
+      <DashboardLayout title="Evaluación">
+        <div className="p-8 text-center text-gray-400">Cargando...</div>
+      </DashboardLayout>
+    );
+  }
+
+  if (alreadyDone && !result) {
+    return (
+      <DashboardLayout title="Evaluación">
+        <div className="p-8 max-w-xl mx-auto">
+          <div className="card text-center">
+            <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
+            <h1 className="text-xl font-black text-gray-800 mb-2">Ya completaste tu evaluación</h1>
+            <p className="text-gray-500 mb-4">Tu evaluación inicial ya fue registrada. Ahora resuelve actividades para avanzar.</p>
+            <Link href="/contents" className="btn-primary">Ir a actividades</Link>
           </div>
         </div>
       </DashboardLayout>

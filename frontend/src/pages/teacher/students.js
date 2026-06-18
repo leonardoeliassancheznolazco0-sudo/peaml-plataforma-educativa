@@ -61,6 +61,36 @@ export default function TeacherStudents() {
     }
   };
 
+  const handleDiagnosis = async (studentId, current) => {
+    try {
+      await managementAPI.updateStudentProfile(studentId, { diagnosis_confirmed: !current });
+      setMsg({ type: "success", text: !current ? "Diagnóstico confirmado (oficial)" : "Confirmación retirada" });
+      fetchData();
+    } catch {
+      setMsg({ type: "error", text: "Error al actualizar el diagnóstico" });
+    }
+  };
+
+  const handleProfile = async (studentId, profile) => {
+    try {
+      await managementAPI.updateStudentProfile(studentId, { cognitive_profile: profile });
+      setMsg({ type: "success", text: "Perfil actualizado (afecta las recomendaciones del ML)" });
+      fetchData();
+    } catch {
+      setMsg({ type: "error", text: "Error al actualizar el perfil" });
+    }
+  };
+
+  const handleReopen = async (studentId) => {
+    try {
+      await managementAPI.updateStudentProfile(studentId, { assessment_done: false });
+      setMsg({ type: "success", text: "Evaluación reabierta (modo dev) — el estudiante puede volver a hacerla" });
+      fetchData();
+    } catch {
+      setMsg({ type: "error", text: "Error al reabrir la evaluación" });
+    }
+  };
+
 
   const filtered = students.filter(s =>
     s.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -173,7 +203,7 @@ export default function TeacherStudents() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100">
-                  {["Nombre", "Email", "Perfil", "Preferencia", "Nivel", "Edad", "Estado", "Acción"].map(h => (
+                  {["Nombre", "Email", "Perfil", "Diagnóstico", "Preferencia", "Nivel", "Edad", "Estado", "Acción"].map(h => (
                     <th key={h} className="text-left text-gray-500 font-semibold pb-3 pr-4">{h}</th>
                   ))}
                 </tr>
@@ -189,6 +219,22 @@ export default function TeacherStudents() {
                       </span>
                     </td>
                     <td className="py-3 pr-4">
+                      <div className="flex items-center gap-1.5">
+                        <select value={s.cognitive_profile || "general"}
+                          onChange={(e) => handleProfile(s.student_id, e.target.value)}
+                          className="text-xs border border-gray-200 rounded-lg px-1.5 py-1 bg-white">
+                          <option value="general">general</option>
+                          <option value="TEA">TEA</option>
+                          <option value="TDAH">TDAH</option>
+                          <option value="dislexia">dislexia</option>
+                        </select>
+                        <button onClick={() => handleDiagnosis(s.student_id, s.diagnosis_confirmed)}
+                          className={`text-xs font-medium px-2 py-1 rounded-lg whitespace-nowrap ${s.diagnosis_confirmed ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
+                          {s.diagnosis_confirmed ? "✓ Oficial" : "Confirmar"}
+                        </button>
+                      </div>
+                    </td>
+                    <td className="py-3 pr-4">
                       <span className="badge bg-gray-100 text-gray-600 text-xs capitalize">{s.learning_preference || "—"}</span>
                     </td>
                     <td className="py-3 pr-4">
@@ -197,17 +243,25 @@ export default function TeacherStudents() {
                     <td className="py-3 pr-4 text-gray-600">{s.age ? `${s.age} años` : "—"}</td>
                     <td className="py-3 pr-4">{statusBadge(s.status)}</td>
                     <td className="py-3">
-                      {s.status !== "inactive" ? (
-                        <button onClick={() => handleStatus(s.id, "inactive")}
-                          className="text-xs text-red-600 hover:underline font-medium">
-                          Desactivar
-                        </button>
-                      ) : (
-                        <button onClick={() => handleStatus(s.id, "active")}
-                          className="text-xs text-green-600 hover:underline font-medium">
-                          Activar
-                        </button>
-                      )}
+                      <div className="flex flex-col gap-1">
+                        {s.status !== "inactive" ? (
+                          <button onClick={() => handleStatus(s.id, "inactive")}
+                            className="text-xs text-red-600 hover:underline font-medium text-left">
+                            Desactivar
+                          </button>
+                        ) : (
+                          <button onClick={() => handleStatus(s.id, "active")}
+                            className="text-xs text-green-600 hover:underline font-medium text-left">
+                            Activar
+                          </button>
+                        )}
+                        {s.assessment_done && (
+                          <button onClick={() => handleReopen(s.student_id)}
+                            className="text-xs text-blue-600 hover:underline font-medium text-left">
+                            Reabrir eval (dev)
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
