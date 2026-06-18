@@ -17,7 +17,7 @@ export default function ContentManagePage() {
   const { user } = useAuth();
   const [contents, setContents] = useState([]);
   const [selected, setSelected] = useState(null);         // contenido cuyas preguntas se gestionan
-  const [contentForm, setContentForm] = useState(null);   // null = oculto; objeto = crear/editar
+  const [contentForm, setContentForm] = useState(null);   // null = oculto; objeto = crear (sin id) / editar (con id)
   const [questions, setQuestions] = useState([]);
   const [questionForm, setQuestionForm] = useState(EMPTY_QUESTION);
   const [editingQuestionId, setEditingQuestionId] = useState(null);
@@ -36,7 +36,7 @@ export default function ContentManagePage() {
 
   // ----- contenidos -----
   const startCreateContent = () => { setContentForm({ ...EMPTY_CONTENT }); setSelected(null); setError(null); setSuccess(null); };
-  const startEditContent = (c) => { setContentForm({ ...c }); setError(null); setSuccess(null); };
+  const startEditContent = (c) => { setContentForm({ ...c }); setSelected(null); setError(null); setSuccess(null); };
   const cancelContentForm = () => setContentForm(null);
 
   const saveContent = async (e) => {
@@ -70,7 +70,7 @@ export default function ContentManagePage() {
 
   // ----- preguntas -----
   const manageQuestions = (c) => {
-    setSelected(c);
+    setSelected(selected?.id === c.id ? null : c);
     setContentForm(null);
     setQuestionForm(EMPTY_QUESTION);
     setEditingQuestionId(null);
@@ -119,6 +119,41 @@ export default function ContentManagePage() {
     }
   };
 
+  // ----- formulario de contenido (compartido entre crear y editar) -----
+  const renderContentForm = () => (
+    <form onSubmit={saveContent} className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="font-bold text-gray-800">{contentForm.id ? "Editar contenido" : "Nuevo contenido"}</h2>
+        <button type="button" onClick={cancelContentForm} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+      </div>
+      <input value={contentForm.title} onChange={(e) => setContentForm({ ...contentForm, title: e.target.value })}
+        className="input-field" placeholder="Título" required />
+      <textarea value={contentForm.description || ""} onChange={(e) => setContentForm({ ...contentForm, description: e.target.value })}
+        className="input-field" rows={2} placeholder="Descripción" />
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Tipo</label>
+          <select value={contentForm.content_type} onChange={(e) => setContentForm({ ...contentForm, content_type: e.target.value })} className="input-field">
+            {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Nivel</label>
+          <select value={contentForm.level} onChange={(e) => setContentForm({ ...contentForm, level: e.target.value })} className="input-field">
+            {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Perfil</label>
+          <select value={contentForm.recommended_profile} onChange={(e) => setContentForm({ ...contentForm, recommended_profile: e.target.value })} className="input-field">
+            {PROFILES.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </div>
+      </div>
+      <button type="submit" className="btn-primary w-full">{contentForm.id ? "Guardar cambios" : "Crear contenido"}</button>
+    </form>
+  );
+
   // ----- accesos -----
   if (!user) return (<div className="p-8 text-center"><Link href="/login" className="btn-primary">Iniciar sesión</Link></div>);
   if (user.role !== "teacher" && user.role !== "admin") {
@@ -149,30 +184,9 @@ export default function ContentManagePage() {
         {error && (<div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 mb-4 text-sm"><AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}</div>)}
         {success && (<div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded-xl p-3 mb-4 text-sm"><CheckCircle className="w-4 h-4 flex-shrink-0" /> {success}</div>)}
 
-        {/* formulario de contenido (crear/editar) */}
-        {contentForm && (
-          <form onSubmit={saveContent} className="card mb-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold text-gray-800">{contentForm.id ? "Editar contenido" : "Nuevo contenido"}</h2>
-              <button type="button" onClick={cancelContentForm} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
-            </div>
-            <input value={contentForm.title} onChange={(e) => setContentForm({ ...contentForm, title: e.target.value })}
-              className="input-field" placeholder="Título" required />
-            <textarea value={contentForm.description || ""} onChange={(e) => setContentForm({ ...contentForm, description: e.target.value })}
-              className="input-field" rows={2} placeholder="Descripción" />
-            <div className="grid grid-cols-3 gap-3">
-              <select value={contentForm.content_type} onChange={(e) => setContentForm({ ...contentForm, content_type: e.target.value })} className="input-field">
-                {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-              <select value={contentForm.level} onChange={(e) => setContentForm({ ...contentForm, level: e.target.value })} className="input-field">
-                {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-              </select>
-              <select value={contentForm.recommended_profile} onChange={(e) => setContentForm({ ...contentForm, recommended_profile: e.target.value })} className="input-field">
-                {PROFILES.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </div>
-            <button type="submit" className="btn-primary w-full">{contentForm.id ? "Guardar cambios" : "Crear contenido"}</button>
-          </form>
+        {/* formulario de CREAR (solo cuando no hay id) */}
+        {contentForm && !contentForm.id && (
+          <div className="card mb-6">{renderContentForm()}</div>
         )}
 
         {/* lista de contenidos */}
@@ -195,6 +209,11 @@ export default function ContentManagePage() {
                   <button onClick={() => deleteContent(c)} title="Eliminar" className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
+
+              {/* formulario de EDITAR este contenido (inline) */}
+              {contentForm?.id === c.id && (
+                <div className="mt-4 border-t border-gray-100 pt-4">{renderContentForm()}</div>
+              )}
 
               {/* gestor de preguntas del contenido seleccionado */}
               {selected?.id === c.id && (
