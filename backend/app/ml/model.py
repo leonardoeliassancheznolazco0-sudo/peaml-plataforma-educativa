@@ -264,6 +264,52 @@ def nivel_por_desempeno(resultados, nivel_actual="basico"):
     return NIVELES[nivel_idx]
 
 
+# =====================================================================
+#  Alertas y calidad de ítems (analítica honesta sobre datos reales)
+# =====================================================================
+
+# --- Parámetros (viviseccionables) ---
+UMBRAL_ALERTA_PROMEDIO = 50.0   # promedio de score por debajo -> alerta de apoyo
+UMBRAL_DISCRIMINACION = 0.2     # índice de discriminación por debajo -> ítem de baja calidad
+MIN_RESPUESTAS_ITEM = 5         # respuestas mínimas para evaluar una pregunta
+
+
+def calidad_item(respuestas):
+    """
+    Análisis clásico de ítems sobre respuestas reales.
+    respuestas: lista de dicts {"score": score_del_intento, "is_correct": bool}.
+    Calcula:
+      - dificultad (p-value): proporción de aciertos (0=muy difícil, 1=muy fácil).
+      - discriminación: % aciertos del grupo de mejor desempeño menos el del grupo bajo.
+        (una buena pregunta la aciertan más los que saben más).
+    Marca la pregunta como 'mala' si casi todos aciertan/fallan o si discrimina poco.
+    Si hay menos de MIN_RESPUESTAS_ITEM respuestas, no juzga (datos insuficientes).
+    """
+    n = len(respuestas)
+    if n < MIN_RESPUESTAS_ITEM:
+        return {"n": n, "dificultad": None, "discriminacion": None, "mala": False, "motivo": "datos insuficientes"}
+
+    correctas = sum(1 for r in respuestas if r["is_correct"])
+    dificultad = correctas / n
+
+    ordenadas = sorted(respuestas, key=lambda r: r.get("score", 0))
+    mitad = max(1, n // 2)
+    bajo = ordenadas[:mitad]
+    alto = ordenadas[-mitad:]
+    p_alto = sum(1 for r in alto if r["is_correct"]) / len(alto)
+    p_bajo = sum(1 for r in bajo if r["is_correct"]) / len(bajo)
+    discriminacion = round(p_alto - p_bajo, 2)
+
+    base = {"n": n, "dificultad": round(dificultad, 2), "discriminacion": discriminacion}
+    if dificultad >= 0.95:
+        return {**base, "mala": True, "motivo": "casi todos aciertan (muy fácil)"}
+    if dificultad <= 0.05:
+        return {**base, "mala": True, "motivo": "casi todos fallan (revisar)"}
+    if discriminacion < UMBRAL_DISCRIMINACION:
+        return {**base, "mala": True, "motivo": "baja discriminación"}
+    return {**base, "mala": False, "motivo": "ok"}
+
+
 if not os.path.exists(MODEL_PATH):
     try:
         train_model()

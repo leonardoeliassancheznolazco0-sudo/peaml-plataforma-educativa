@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "../../context/AuthContext";
-import { Brain, LayoutDashboard, Star, Users, Settings, LogOut, ClipboardList, BookOpen, UserPlus, FileQuestion } from "lucide-react";
+import { Brain, LayoutDashboard, Star, Users, Settings, LogOut, ClipboardList, BookOpen, UserPlus, FileQuestion, AlertTriangle } from "lucide-react";
 
 const studentLinks = [
   { href: "/student/dashboard", icon: LayoutDashboard, label: "Mi Panel" },
@@ -16,6 +16,7 @@ const teacherLinks = [
   { href: "/students", icon: Users, label: "Todos los Estudiantes" },
   { href: "/contents", icon: BookOpen, label: "Contenidos" },
   { href: "/teacher/quiz-create", icon: FileQuestion, label: "Gestión de Contenidos" },
+  { href: "/alerts", icon: AlertTriangle, label: "Alertas" },
 ];
 
 const adminLinks = [
@@ -24,6 +25,7 @@ const adminLinks = [
   { href: "/students", icon: Users, label: "Estudiantes" },
   { href: "/contents", icon: BookOpen, label: "Contenidos" },
   { href: "/teacher/quiz-create", icon: FileQuestion, label: "Gestión de Contenidos" },
+  { href: "/alerts", icon: AlertTriangle, label: "Alertas" },
   { href: "/admin/settings", icon: Settings, label: "Configuración" },
 ];
 

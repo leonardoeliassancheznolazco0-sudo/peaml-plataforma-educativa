@@ -85,4 +85,9 @@ export const quizAPI = {
   deleteQuestion: (questionId) => api.delete(`/quiz/questions/${questionId}`),
 };
 
+export const analyticsAPI = {
+  studentAlerts: () => api.get("/analytics/student-alerts"),
+  itemQuality: () => api.get("/analytics/item-quality"),
+};
+
 export default api;
