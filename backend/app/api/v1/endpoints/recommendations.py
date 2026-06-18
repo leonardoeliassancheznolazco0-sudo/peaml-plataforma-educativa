@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.db.database import get_db
 from app.models.content import Content, Assessment
+from app.models.quiz import QuizResult
 from app.models.student import Student
 from app.models.user import User
 from app.ml.model import get_content_recommendations
@@ -23,24 +25,15 @@ def get_recommendations(
         if not own_student or own_student.id != student_id:
             raise HTTPException(status_code=403, detail="Solo puedes consultar tus propias recomendaciones")
 
-    cache_key = f"recs:{student_id}"
-    cached = cache_get(cache_key)
-    if cached:
-        return cached
-
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")
 
-    assessments = (
-        db.query(Assessment)
-        .filter(Assessment.student_id == student_id)
-        .order_by(Assessment.created_at.desc())
-        .all()
-    )
-    score = assessments[0].score if assessments else 50.0
-    resp_time = assessments[0].response_time if assessments else 30.0
-    attempts = assessments[0].attempts if assessments else 3
+    # el caché incluye el nivel para refrescar cuando el estudiante sube/baja
+    cache_key = f"recs:{student_id}:{student.current_level or 'basico'}"
+    cached = cache_get(cache_key)
+    if cached:
+        return cached
 
     contents_db = db.query(Content).all()
     contents_list = [
@@ -56,16 +49,24 @@ def get_recommendations(
         for c in contents_db
     ]
 
+    # Retroalimentación real: promedio de score por contenido entre estudiantes del MISMO perfil
+    filas = (
+        db.query(QuizResult.content_id, func.avg(QuizResult.score))
+        .join(Student, Student.id == QuizResult.student_id)
+        .filter(Student.cognitive_profile == (student.cognitive_profile or "general"))
+        .group_by(QuizResult.content_id)
+        .all()
+    )
+    rendimiento = {cid: float(avg) for cid, avg in filas}
+
     recs = get_content_recommendations(
         {
             "cognitive_profile": student.cognitive_profile or "general",
             "preferencia_contenido": student.learning_preference or "visual",
-            "porcentaje_aciertos": score,
-            "tiempo_respuesta_promedio": resp_time,
-            "intentos": attempts,
-            "age": student.age or 9,
+            "current_level": student.current_level or "basico",
         },
         contents_list,
+        rendimiento,
     )
 
     cache_set(cache_key, recs, ttl=180)

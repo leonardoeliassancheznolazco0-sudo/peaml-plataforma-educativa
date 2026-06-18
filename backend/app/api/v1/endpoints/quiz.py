@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.models.quiz import Question, QuizResult
+from app.models.quiz import Question, QuizResult, QuizAnswer
 from app.models.content import Content
 from app.models.student import Student
 from app.models.user import User
@@ -14,7 +14,7 @@ from app.schemas.schemas import (
     QuizSubmit,
     QuizResultOut,
 )
-from app.ml.model import predict_level
+from app.ml.model import nivel_por_desempeno, NIVELES
 from app.core.security import get_current_user, require_student, require_teacher
 
 router = APIRouter()
@@ -112,27 +112,51 @@ def submit_quiz(
         time_seconds=data.time_seconds,
     )
     db.add(result)
+    db.flush()  # para que el resultado recién guardado entre en el cálculo del nivel
 
-    # actualizar el nivel del estudiante usando el puntaje REAL
-    prediction = predict_level({
-        "age": student.age or 9,
-        "cognitive_profile": student.cognitive_profile or "general",
-        "porcentaje_aciertos": score,
-        "tiempo_respuesta_promedio": round(data.time_seconds / total_questions, 2),
-        "intentos": 1,
-        "preferencia_contenido": student.learning_preference or "visual",
-    })
-    student.current_level = prediction["nivel_recomendado"]
+    # guardar cada respuesta individual (para análisis de calidad de ítems)
+    for answer in data.answers:
+        sel = (answer.selected_option or "").strip().upper()
+        expected = correct_map.get(answer.question_id)
+        db.add(QuizAnswer(
+            quiz_result_id=result.id,
+            question_id=answer.question_id,
+            selected_option=sel[:1] if sel else None,
+            is_correct=bool(expected and sel == expected),
+        ))
+
+    # recalcular el nivel con el desempeño REAL (todos sus quizzes + el nivel de cada contenido)
+    historial = (
+        db.query(QuizResult.score, Content.level)
+        .join(Content, Content.id == QuizResult.content_id)
+        .filter(QuizResult.student_id == student.id)
+        .order_by(QuizResult.created_at.asc())
+        .all()
+    )
+    resultados = [{"score": row[0], "content_level": row[1]} for row in historial]
+
+    nivel_anterior = student.current_level or "basico"
+    nivel_nuevo = nivel_por_desempeno(resultados, nivel_anterior)
+    student.current_level = nivel_nuevo
     student.sessions_count = (student.sessions_count or 0) + 1
 
     db.commit()
     db.refresh(result)
 
+    def _idx(n):
+        return NIVELES.index(n) if n in NIVELES else 0
+    if _idx(nivel_nuevo) > _idx(nivel_anterior):
+        nivel_msg = f"¡Subiste a nivel {nivel_nuevo}!"
+    elif _idx(nivel_nuevo) < _idx(nivel_anterior):
+        nivel_msg = f"Bajaste a nivel {nivel_nuevo}. ¡Sigue practicando!"
+    else:
+        nivel_msg = f"Tu nivel sigue siendo {nivel_nuevo}."
+
     return {
         "result": QuizResultOut.model_validate(result),
-        "nivel_nuevo": prediction["nivel_recomendado"],
-        "confianza": prediction.get("confidence"),
-        "mensaje": f"Acertaste {correct_answers} de {total_questions} ({score}%)",
+        "nivel_anterior": nivel_anterior,
+        "nivel_nuevo": nivel_nuevo,
+        "mensaje": f"Acertaste {correct_answers} de {total_questions} ({score}%). {nivel_msg}",
     }
 
 

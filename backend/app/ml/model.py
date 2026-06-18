@@ -134,33 +134,134 @@ def predict_level(student_data: dict) -> dict:
     }
 
 
-def get_content_recommendations(student_data: dict, contents: list) -> list:
-    prediction = predict_level(student_data)
-    nivel = prediction["nivel_recomendado"]
+def get_content_recommendations(student_data: dict, contents: list, rendimiento_por_contenido: dict = None) -> list:
+    """
+    Recomendador híbrido (regla + retroalimentación real):
+      - Coherencia: 0.4 nivel + 0.4 perfil + 0.2 tipo (preferencia)  -> match_score
+      - Componente ML: ajusta el orden con el desempeño REAL de estudiantes del mismo perfil
+        en cada contenido (rendimiento_por_contenido = {content_id: promedio_score 0-100}).
+      - Incluye el contenido más fácil del SIGUIENTE nivel como "reto para subir".
+    """
+    rendimiento = rendimiento_por_contenido or {}
+    nivel = student_data.get("current_level") or "basico"
     profile = student_data.get("cognitive_profile", "general")
     pref = student_data.get("preferencia_contenido", "visual")
 
     scored = []
     for c in contents:
-        score = 0.0
+        match = 0.0
         if c.get("level") == nivel:
-            score += 0.4
+            match += 0.4
         if c.get("recommended_profile") == profile:
-            score += 0.4
+            match += 0.4
         if c.get("content_type") == pref:
-            score += 0.2
-        scored.append({**c, "match_score": round(score, 2)})
+            match += 0.2
+        avg_real = rendimiento.get(c.get("id"))                  # promedio real de estudiantes parecidos
+        fit = (avg_real / 100.0) if avg_real is not None else None
+        ranking = match + (0.2 * fit if fit is not None else 0.0)   # empujón por desempeño real
+        scored.append({
+            **c,
+            "match_score": round(match, 2),
+            "fit_real": round(fit, 2) if fit is not None else None,
+            "ranking": round(ranking, 3),
+            "reto": False,
+        })
 
-    scored.sort(key=lambda x: x["match_score"], reverse=True)
-
-    # Solo recomendaciones COHERENTES: cumplen al menos 2 de 3 criterios
-    # (nivel 0.4 + perfil 0.4 + tipo 0.2  ->  >= 0.6 equivale a >= 2 de 3 criterios)
+    # Coherentes (>=2 de 3 criterios), ordenadas por ranking (coherencia + ML)
     coherentes = [s for s in scored if s["match_score"] >= 0.6]
-    if coherentes:
-        return coherentes[:6]
+    coherentes.sort(key=lambda x: x["ranking"], reverse=True)
+    base = coherentes[:6] if coherentes else sorted(scored, key=lambda x: x["ranking"], reverse=True)[:3]
 
-    # Respaldo: si ninguna es coherente, mostrar las 3 mejores para no dejar la pantalla vacía
-    return scored[:3]
+    # Reto del siguiente nivel
+    reto = _reto_siguiente_nivel(nivel, contents, profile, rendimiento, base)
+    if reto:
+        base = base + [reto]
+
+    return base
+
+
+def _reto_siguiente_nivel(nivel, contents, profile, rendimiento, ya_incluidos):
+    """Devuelve el contenido más fácil del nivel siguiente como 'reto para subir', o None."""
+    if nivel not in NIVELES or NIVELES.index(nivel) >= len(NIVELES) - 1:
+        return None
+    siguiente = NIVELES[NIVELES.index(nivel) + 1]
+    candidatos = [c for c in contents if c.get("level") == siguiente]
+    mismo_perfil = [c for c in candidatos if c.get("recommended_profile") == profile]
+    candidatos = mismo_perfil or candidatos
+    if not candidatos:
+        return None
+    # "más fácil" = mayor promedio real entre estudiantes; sin datos queda al final del orden
+    candidatos.sort(key=lambda c: rendimiento.get(c.get("id"), -1), reverse=True)
+    elegido = candidatos[0]
+    if elegido.get("id") in {c.get("id") for c in ya_incluidos}:
+        return None
+    avg = rendimiento.get(elegido.get("id"))
+    return {
+        **elegido,
+        "match_score": 0.6,
+        "fit_real": round(avg / 100.0, 2) if avg is not None else None,
+        "ranking": 0.6,
+        "reto": True,
+    }
+
+
+# =====================================================================
+#  Nivel dinámico a partir del desempeño REAL (progresión por reto)
+# =====================================================================
+
+# --- Parámetros del nivel (los que el profesor podrá "viviseccionar") ---
+NIVELES = ["basico", "intermedio", "avanzado"]
+UMBRAL_APROBAR = 70.0          # score >= se considera aprobado
+UMBRAL_REPROBAR = 50.0         # score < se considera reprobado
+FALLAS_PARA_BAJAR = 2          # reprobadas seguidas en el nivel actual para bajar
+MIN_APROBADAS_PARA_SUBIR = 2   # quizzes aprobados de un nivel para poder subir a él
+
+
+def nivel_por_desempeno(resultados, nivel_actual="basico"):
+    """
+    Calcula el nivel del estudiante a partir de su desempeño REAL.
+
+    resultados: lista de dicts {"content_level": "basico|intermedio|avanzado", "score": 0-100},
+                ordenados del más antiguo al más reciente.
+    Regla (progresión por reto):
+      - Un quiz se aprueba si score >= UMBRAL_APROBAR.
+      - Para SUBIR a un nivel hay que aprobar al menos MIN_APROBADAS_PARA_SUBIR quizzes
+        de contenido de ESE nivel (no basta con aprobar uno). Básico es el piso.
+      - Si reprueba (score < UMBRAL_REPROBAR) FALLAS_PARA_BAJAR veces seguidas en su nivel
+        actual, baja un nivel.
+    """
+    if not resultados:
+        return nivel_actual
+
+    # 1) contar quizzes APROBADOS por nivel de contenido
+    aprobadas = {n: 0 for n in NIVELES}
+    for r in resultados:
+        if r.get("score", 0) >= UMBRAL_APROBAR:
+            cl = r.get("content_level")
+            if cl in aprobadas:
+                aprobadas[cl] += 1
+
+    # 2) nivel = el más alto que alcance el mínimo de aprobadas (básico es el piso)
+    nivel_idx = 0
+    for i in range(len(NIVELES) - 1, 0, -1):
+        if aprobadas[NIVELES[i]] >= MIN_APROBADAS_PARA_SUBIR:
+            nivel_idx = i
+            break
+
+    # 3) ¿baja? fallas consecutivas recientes en el nivel calculado
+    nivel_str = NIVELES[nivel_idx]
+    consecutivas = 0
+    for r in reversed(resultados):
+        if r.get("content_level") != nivel_str:
+            continue
+        if r.get("score", 0) < UMBRAL_REPROBAR:
+            consecutivas += 1
+        else:
+            break
+    if consecutivas >= FALLAS_PARA_BAJAR and nivel_idx > 0:
+        nivel_idx -= 1
+
+    return NIVELES[nivel_idx]
 
 
 if not os.path.exists(MODEL_PATH):

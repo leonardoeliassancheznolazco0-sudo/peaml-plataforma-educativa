@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func, Text, Float
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func, Text, Float, Boolean
 from app.db.database import Base
 
 
@@ -29,4 +29,17 @@ class QuizResult(Base):
     correct_answers = Column(Integer, nullable=False)
     score = Column(Float, nullable=False)         # 0-100, % real de aciertos
     time_seconds = Column(Float, nullable=False)  # tiempo real que tardó
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class QuizAnswer(Base):
+    """Respuesta individual a una pregunta dentro de un intento.
+    Permite el análisis de calidad de ítems (índice de discriminación)."""
+    __tablename__ = "quiz_answers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    quiz_result_id = Column(Integer, ForeignKey("quiz_results.id"), nullable=False)
+    question_id = Column(Integer, ForeignKey("questions.id"), nullable=False)
+    selected_option = Column(String(1))           # "A" | "B" | "C" | "D"
+    is_correct = Column(Boolean, nullable=False)
     created_at = Column(DateTime, server_default=func.now())

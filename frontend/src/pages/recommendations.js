@@ -62,6 +62,7 @@ export default function RecommendationsPage() {
                       <Icon className="w-5 h-5" />
                     </div>
                     <div className="flex gap-2 flex-wrap justify-end">
+                      {rec.reto && <span className="badge bg-amber-100 text-amber-700">Reto para subir</span>}
                       <span className={`badge ${lvlColor} capitalize`}>{rec.level}</span>
                       <span className="badge bg-gray-100 text-gray-600 capitalize">{rec.content_type}</span>
                     </div>
