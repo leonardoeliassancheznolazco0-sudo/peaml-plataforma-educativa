@@ -6,6 +6,7 @@ from app.core.config import settings
 from app.db.database import engine, Base
 from app.api.v1 import router as api_router
 from app.db.seed import seed_initial_data
+from app.models import quiz  # noqa: F401  → registra las tablas questions y quiz_results
 
 
 @asynccontextmanager

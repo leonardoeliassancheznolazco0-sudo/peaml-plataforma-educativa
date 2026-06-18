@@ -113,3 +113,66 @@ class MLPredictOutput(BaseModel):
     perfil_detectado: str
     recomendaciones: List[dict]
     metricas: dict
+
+
+# ---- Quiz: preguntas ----
+class QuestionCreate(BaseModel):
+    text: str
+    option_a: str
+    option_b: str
+    option_c: str
+    option_d: str
+    correct_option: str  # "A" | "B" | "C" | "D"
+
+
+class QuestionOut(BaseModel):
+    """Versión completa para el DOCENTE: incluye la respuesta correcta."""
+    id: int
+    content_id: int
+    text: str
+    option_a: str
+    option_b: str
+    option_c: str
+    option_d: str
+    correct_option: str
+
+    class Config:
+        from_attributes = True
+
+
+class QuestionForStudent(BaseModel):
+    """Versión para el ESTUDIANTE: SIN la respuesta correcta (para que no haga trampa)."""
+    id: int
+    text: str
+    option_a: str
+    option_b: str
+    option_c: str
+    option_d: str
+
+    class Config:
+        from_attributes = True
+
+
+# ---- Quiz: envío y resultado ----
+class QuizAnswer(BaseModel):
+    question_id: int
+    selected_option: str  # "A" | "B" | "C" | "D"
+
+
+class QuizSubmit(BaseModel):
+    content_id: int
+    answers: List[QuizAnswer]
+    time_seconds: float
+
+
+class QuizResultOut(BaseModel):
+    id: int
+    student_id: int
+    content_id: int
+    total_questions: int
+    correct_answers: int
+    score: float
+    time_seconds: float
+
+    class Config:
+        from_attributes = True
