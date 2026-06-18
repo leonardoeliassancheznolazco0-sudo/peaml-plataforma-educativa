@@ -6,7 +6,7 @@ from app.models.user import User
 from app.models.student import Student
 from app.models.content import Content
 from app.models.quiz import Question, QuizResult, QuizAnswer
-from app.ml.model import UMBRAL_ALERTA_PROMEDIO, calidad_item
+from app.ml.model import UMBRAL_ALERTA_PROMEDIO, calidad_item, agrupar_estudiantes, N_CLUSTERS
 from app.core.security import require_teacher
 
 router = APIRouter()
@@ -87,3 +87,42 @@ def item_quality(
             **calidad,
         })
     return {"items": items, "total_malos": total_malos}
+
+
+@router.get("/clusters")
+def clusters(
+    k: int = None,
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    """Agrupa a los estudiantes por patrones de desempeño (K-Means).
+    Docente agrupa a SUS estudiantes; admin a todos. 'k' = número de grupos."""
+    NIV = {"basico": 0, "intermedio": 1, "avanzado": 2}
+    q = db.query(User).filter(User.role == "student")
+    if current_user.role == "teacher":
+        q = q.filter(User.created_by == current_user.id)
+
+    estudiantes = []
+    for u in q.all():
+        student = db.query(Student).filter(Student.user_id == u.id).first()
+        if not student:
+            continue
+        filas = (
+            db.query(QuizResult.score, QuizResult.time_seconds)
+            .filter(QuizResult.student_id == student.id)
+            .all()
+        )
+        scores = [f[0] for f in filas]
+        tiempos = [f[1] for f in filas]
+        estudiantes.append({
+            "student_id": student.id,
+            "name": u.name,
+            "nivel": student.current_level,
+            "promedio": (sum(scores) / len(scores)) if scores else 0.0,
+            "num_quizzes": len(scores),
+            "tiempo_promedio": (sum(tiempos) / len(tiempos)) if tiempos else 0.0,
+            "nivel_idx": NIV.get(student.current_level, 0),
+        })
+
+    grupos = agrupar_estudiantes(estudiantes, k)
+    return {"k": k or N_CLUSTERS, "total_estudiantes": len(estudiantes), "grupos": grupos}

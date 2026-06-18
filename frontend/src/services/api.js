@@ -88,6 +88,7 @@ export const quizAPI = {
 export const analyticsAPI = {
   studentAlerts: () => api.get("/analytics/student-alerts"),
   itemQuality: () => api.get("/analytics/item-quality"),
+  clusters: (k) => api.get("/analytics/clusters" + (k ? `?k=${k}` : "")),
 };
 
 export default api;

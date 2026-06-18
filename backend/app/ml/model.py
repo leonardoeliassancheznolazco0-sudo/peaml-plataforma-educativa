@@ -3,7 +3,8 @@ import pandas as pd
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.cluster import KMeans
 import joblib
 import os
 
@@ -308,6 +309,74 @@ def calidad_item(respuestas):
     if discriminacion < UMBRAL_DISCRIMINACION:
         return {**base, "mala": True, "motivo": "baja discriminación"}
     return {**base, "mala": False, "motivo": "ok"}
+
+
+# =====================================================================
+#  Clustering de estudiantes (K-Means, no supervisado)
+# =====================================================================
+
+N_CLUSTERS = 3  # número de grupos por defecto (viviseccionable)
+
+
+def agrupar_estudiantes(estudiantes, k=None):
+    """
+    Agrupa estudiantes por patrones de aprendizaje con K-Means (NO supervisado:
+    no usa etiquetas, solo encuentra estructura -> honesto, sin circularidad).
+
+    estudiantes: lista de dicts con keys:
+        student_id, name, nivel, promedio, num_quizzes, tiempo_promedio, nivel_idx
+    Devuelve: lista de grupos [{grupo, etiqueta, promedio, num_estudiantes, miembros:[...]}].
+    """
+    k = k or N_CLUSTERS
+    n = len(estudiantes)
+    if n == 0:
+        return []
+    k = max(1, min(k, n))  # no puede haber más grupos que estudiantes
+
+    X = np.array([[
+        e.get("promedio", 0.0),
+        e.get("num_quizzes", 0),
+        e.get("tiempo_promedio", 0.0),
+        e.get("nivel_idx", 0),
+    ] for e in estudiantes], dtype=float)
+
+    # estandarizar porque las variables están en escalas distintas
+    X_scaled = StandardScaler().fit_transform(X)
+    modelo = KMeans(n_clusters=k, random_state=42, n_init=10)
+    etiquetas = modelo.fit_predict(X_scaled)
+
+    grupos = {}
+    for e, lab in zip(estudiantes, etiquetas):
+        grupos.setdefault(int(lab), []).append(e)
+
+    resultado = []
+    for miembros in grupos.values():
+        prom = round(sum(m.get("promedio", 0) for m in miembros) / len(miembros), 1)
+        if prom >= 70:
+            etiqueta = "Buen desempeño"
+        elif prom >= 45:
+            etiqueta = "En progreso"
+        else:
+            etiqueta = "Necesitan apoyo"
+        resultado.append({
+            "etiqueta": etiqueta,
+            "promedio": prom,
+            "num_estudiantes": len(miembros),
+            "miembros": [
+                {
+                    "student_id": m["student_id"],
+                    "name": m["name"],
+                    "nivel": m.get("nivel"),
+                    "promedio": round(m.get("promedio", 0), 1),
+                }
+                for m in miembros
+            ],
+        })
+
+    resultado.sort(key=lambda g: g["promedio"], reverse=True)
+    for i, g in enumerate(resultado, start=1):
+        g["grupo"] = i
+    return resultado
 
 
 if not os.path.exists(MODEL_PATH):
