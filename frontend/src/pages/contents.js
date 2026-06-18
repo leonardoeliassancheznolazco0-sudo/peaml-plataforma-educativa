@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import DashboardLayout from "../components/layout/DashboardLayout";
 import { contentsAPI } from "../services/api";
-import { BookOpen, Monitor, Headphones, FileText, Zap, ExternalLink } from "lucide-react";
+import { BookOpen, Monitor, Headphones, FileText, Zap, PlayCircle } from "lucide-react";
 
 const typeIcons = { visual: Monitor, auditivo: Headphones, lectura: FileText, interactivo: Zap };
 const typeColors = { visual: "bg-blue-50 text-blue-600", auditivo: "bg-purple-50 text-purple-600", lectura: "bg-green-50 text-green-600", interactivo: "bg-orange-50 text-orange-600" };
@@ -57,10 +58,10 @@ export default function ContentsPage() {
                   </div>
                   <h3 className="font-bold text-gray-800 mb-1">{c.title}</h3>
                   <p className="text-sm text-gray-500 mb-4">{c.description}</p>
-                  <a href={c.url || "#"} target="_blank" rel="noreferrer"
+                  <Link href={`/quiz/${c.id}`}
                     className="btn-primary w-full text-sm text-center flex items-center justify-center gap-2">
-                    Ver Contenido <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
+                    Resolver actividad <PlayCircle className="w-3.5 h-3.5" />
+                  </Link>
                 </div>
               );
             })}

@@ -152,7 +152,15 @@ def get_content_recommendations(student_data: dict, contents: list) -> list:
         scored.append({**c, "match_score": round(score, 2)})
 
     scored.sort(key=lambda x: x["match_score"], reverse=True)
-    return scored[:5]
+
+    # Solo recomendaciones COHERENTES: cumplen al menos 2 de 3 criterios
+    # (nivel 0.4 + perfil 0.4 + tipo 0.2  ->  >= 0.6 equivale a >= 2 de 3 criterios)
+    coherentes = [s for s in scored if s["match_score"] >= 0.6]
+    if coherentes:
+        return coherentes[:6]
+
+    # Respaldo: si ninguna es coherente, mostrar las 3 mejores para no dejar la pantalla vacía
+    return scored[:3]
 
 
 if not os.path.exists(MODEL_PATH):

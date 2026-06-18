@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useAuth } from "../context/AuthContext";
 import DashboardLayout from "../components/layout/DashboardLayout";
 import { recommendationsAPI } from "../services/api";
-import { BookOpen, Headphones, Monitor, FileText, Zap, ExternalLink, AlertCircle } from "lucide-react";
+import { BookOpen, Headphones, Monitor, FileText, Zap, PlayCircle, AlertCircle } from "lucide-react";
 
 const typeIcons  = { visual: Monitor, auditivo: Headphones, lectura: FileText, interactivo: Zap };
 const typeColors = { visual: "bg-blue-50 text-blue-600", auditivo: "bg-purple-50 text-purple-600", lectura: "bg-green-50 text-green-600", interactivo: "bg-orange-50 text-orange-600" };
@@ -78,10 +79,10 @@ export default function RecommendationsPage() {
                       </div>
                     </div>
                   )}
-                  <a href={rec.url || "#"} target="_blank" rel="noreferrer"
+                  <Link href={`/quiz/${rec.id}`}
                     className="btn-primary w-full text-center text-sm flex items-center justify-center gap-2">
-                    Ver Contenido <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
+                    Resolver actividad <PlayCircle className="w-3.5 h-3.5" />
+                  </Link>
                 </div>
               );
             })}

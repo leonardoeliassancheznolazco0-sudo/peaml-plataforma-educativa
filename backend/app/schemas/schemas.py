@@ -95,6 +95,15 @@ class ContentOut(BaseModel):
         from_attributes = True
 
 
+class ContentUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    content_type: Optional[str] = None
+    level: Optional[str] = None
+    recommended_profile: Optional[str] = None
+    url: Optional[str] = None
+
+
 # ---- ML ----
 class MLPredictInput(BaseModel):
     student_id: int
@@ -151,6 +160,16 @@ class QuestionForStudent(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class QuestionUpdate(BaseModel):
+    """Para editar una pregunta existente (todos los campos opcionales)."""
+    text: Optional[str] = None
+    option_a: Optional[str] = None
+    option_b: Optional[str] = None
+    option_c: Optional[str] = None
+    option_d: Optional[str] = None
+    correct_option: Optional[str] = None
 
 
 # ---- Quiz: envío y resultado ----

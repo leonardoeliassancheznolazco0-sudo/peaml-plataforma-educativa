@@ -10,6 +10,7 @@ from app.schemas.schemas import (
     QuestionCreate,
     QuestionOut,
     QuestionForStudent,
+    QuestionUpdate,
     QuizSubmit,
     QuizResultOut,
 )
@@ -153,3 +154,42 @@ def get_results(
         .order_by(QuizResult.created_at.desc())
         .all()
     )
+
+
+# ---- DOCENTE: editar una pregunta ----
+@router.patch("/questions/{question_id}", response_model=QuestionOut)
+def update_question(
+    question_id: int,
+    data: QuestionUpdate,
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    question = db.query(Question).filter(Question.id == question_id).first()
+    if not question:
+        raise HTTPException(status_code=404, detail="Pregunta no encontrada")
+    updates = data.dict(exclude_unset=True)
+    if "correct_option" in updates:
+        opt = (updates["correct_option"] or "").strip().upper()
+        if opt not in {"A", "B", "C", "D"}:
+            raise HTTPException(status_code=400, detail="La opción correcta debe ser A, B, C o D")
+        updates["correct_option"] = opt
+    for field, value in updates.items():
+        setattr(question, field, value)
+    db.commit()
+    db.refresh(question)
+    return question
+
+
+# ---- DOCENTE: eliminar una pregunta ----
+@router.delete("/questions/{question_id}")
+def delete_question(
+    question_id: int,
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    question = db.query(Question).filter(Question.id == question_id).first()
+    if not question:
+        raise HTTPException(status_code=404, detail="Pregunta no encontrada")
+    db.delete(question)
+    db.commit()
+    return {"message": "Pregunta eliminada", "id": question_id}

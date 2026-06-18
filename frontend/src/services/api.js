@@ -30,6 +30,8 @@ export const studentsAPI = {
 export const contentsAPI = {
   list: () => api.get("/contents/"),
   create: (data) => api.post("/contents/", data),
+  update: (id, data) => api.patch(`/contents/${id}`, data),
+  remove: (id) => api.delete(`/contents/${id}`),
 };
 
 export const assessmentsAPI = {
@@ -69,6 +71,18 @@ export const managementAPI = {
   updateStudentProfile: (studentId, data) => api.patch(`/manage/teacher/students/${studentId}`, data),
   updateMyStudentStatus: (userId, status) => api.patch(`/manage/teacher/students/${userId}/status?status=${status}`),
 
+};
+
+export const quizAPI = {
+  // docente
+  addQuestion: (contentId, data) => api.post(`/quiz/contents/${contentId}/questions`, data),
+  listQuestions: (contentId) => api.get(`/quiz/contents/${contentId}/questions`),
+  // estudiante
+  getQuiz: (contentId) => api.get(`/quiz/contents/${contentId}/quiz`),
+  submit: (data) => api.post(`/quiz/submit`, data),
+  results: (studentId) => api.get(`/quiz/results/${studentId}`),
+  updateQuestion: (questionId, data) => api.patch(`/quiz/questions/${questionId}`, data),
+  deleteQuestion: (questionId) => api.delete(`/quiz/questions/${questionId}`),
 };
 
 export default api;
