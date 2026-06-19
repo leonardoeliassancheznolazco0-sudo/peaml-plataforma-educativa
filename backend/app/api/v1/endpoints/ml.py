@@ -4,9 +4,13 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.content import Content
 from app.models.student import Student
+from app.models.quiz import QuizResult
 from app.models.user import User
 from app.schemas.schemas import MLPredictInput, MLPredictOutput
-from app.ml.model import predict_level, get_content_recommendations, train_model, metrica_coherencia
+from app.ml.model import (
+    predict_level, get_content_recommendations, train_model,
+    metrica_coherencia, concordancia_desempeno,
+)
 from app.db.redis_client import cache_set, cache_get
 from app.core.security import get_current_user, require_admin, require_teacher
 
@@ -103,4 +107,22 @@ def coherence(
         }
         for c in db.query(Content).all()
     ]
-    return metrica_coherencia(estudiantes, contents)
+    consist = metrica_coherencia(estudiantes, contents)
+
+    # % de quizzes aprobados (score >= 70) sobre el total de quizzes resueltos
+    scores = [r[0] for r in db.query(QuizResult.score).all()]
+    interacciones = [{"aprobado": (s or 0) >= 70} for s in scores]
+    concord = concordancia_desempeno(interacciones)
+
+    return {
+        "consistencia": consist["coherencia"],
+        "recomendaciones_coherentes": consist["recomendaciones_coherentes"],
+        "total_recomendaciones": consist["total_recomendaciones"],
+        "criterio": consist["criterio"],
+        "estudiantes_evaluados": consist["estudiantes_evaluados"],
+        "concordancia": concord["concordancia"],
+        "concordancia_motivo": concord["motivo"],
+        "aprobados": concord["aprobados"],
+        "interacciones_reales": concord["interacciones"],
+        "confianza": concord["confianza"],
+    }

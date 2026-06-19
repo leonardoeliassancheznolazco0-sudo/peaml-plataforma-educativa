@@ -147,25 +147,34 @@ export default function AdminDashboard() {
           </div>
 
           <div className="bg-primary-50 rounded-2xl p-5 text-center mb-4">
-            <div className="text-4xl font-black text-primary-700">{coherence ? `${coherence.coherencia}%` : "—"}</div>
-            <div className="text-sm text-primary-600 mt-1">Coherencia de recomendaciones</div>
-            <div className="text-xs text-gray-500 mt-1">{coherence?.criterio || "≥ 2 de 3 criterios (nivel, perfil, preferencia)"}</div>
+            <div className="text-4xl font-black text-primary-700">{coherence ? `${coherence.consistencia}%` : "—"}</div>
+            <div className="text-sm text-primary-600 mt-1">Consistencia del recomendador</div>
+            <div className="text-xs text-gray-500 mt-1">
+              Chequeo de diseño ({coherence?.criterio || "≥2 de 3"}) · no es precisión clínica
+            </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            {[
-              { label: "Recs coherentes", value: coherence ? `${coherence.recomendaciones_coherentes}/${coherence.total_recomendaciones}` : "—" },
-              { label: "Estudiantes", value: coherence?.estudiantes_evaluados ?? "—" },
-              { label: "Modelo", value: "Reglas + K-Means" },
-            ].map(m => (
-              <div key={m.label} className="bg-gray-50 rounded-xl p-3 text-center">
-                <div className="font-bold text-gray-700 text-sm">{m.value}</div>
-                <div className="text-xs text-gray-500">{m.label}</div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-gray-50 rounded-xl p-4 text-center">
+              <div className="text-2xl font-black text-gray-700">
+                {coherence?.concordancia != null ? `${coherence.concordancia}%` : "—"}
               </div>
-            ))}
+              <div className="text-xs text-gray-500 mt-1">Quizzes aprobados (del total)</div>
+              {coherence?.concordancia != null ? (
+                <div className="text-xs text-gray-400 mt-1">{coherence.aprobados}/{coherence.interacciones_reales} aprobados</div>
+              ) : (
+                <div className="text-xs text-amber-600 mt-1">{coherence?.concordancia_motivo || "datos insuficientes"}</div>
+              )}
+            </div>
+            <div className="bg-gray-50 rounded-xl p-4 text-center">
+              <div className="text-2xl font-black text-gray-700">{coherence?.interacciones_reales ?? "—"}</div>
+              <div className="text-xs text-gray-500 mt-1">Interacciones reales · confianza {coherence?.confianza || "—"}</div>
+            </div>
           </div>
           <p className="text-xs text-gray-400 mt-3">
-            No se reporta accuracy clínico: no es medible sin datos reales validados por un profesional. La coherencia mide el output real del recomendador y es verificable a mano.
+            La consistencia confirma que el recomendador sigue su diseño (verificable a mano). La validación real
+            es la concordancia con el desempeño, que necesita uso; hoy la confianza es {coherence?.confianza || "baja"} por
+            las pocas interacciones reales — y la plataforma ya las está recogiendo.
           </p>
         </div>
       </div>

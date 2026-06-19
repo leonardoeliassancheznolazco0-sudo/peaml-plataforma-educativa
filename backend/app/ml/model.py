@@ -429,6 +429,38 @@ def metrica_coherencia(estudiantes, contents, top_n=5):
     }
 
 
+MIN_INTERACCIONES = 5  # interacciones reales mínimas para reportar concordancia
+
+
+def _es_coherente(nivel, profile, pref, contenido):
+    """¿El contenido cumple >= 2 de 3 criterios para ese estudiante?"""
+    s = 0.0
+    if contenido.get("level") == nivel:
+        s += 0.4
+    if contenido.get("recommended_profile") == profile:
+        s += 0.4
+    if contenido.get("content_type") == pref:
+        s += 0.2
+    return s >= 0.6
+
+
+def concordancia_desempeno(interacciones):
+    """
+    Métrica HONESTA atada al desempeño REAL (puede salir baja, y eso está bien).
+    interacciones: lista de dicts {"aprobado": bool}.
+    Concordancia = % de quizzes APROBADOS (score >= 70) sobre el TOTAL de quizzes resueltos.
+    Si hay menos de MIN_INTERACCIONES -> 'datos insuficientes'.
+    """
+    total = len(interacciones)
+    aprobados = sum(1 for i in interacciones if i.get("aprobado"))
+    confianza = "alta" if total >= 30 else ("media" if total >= 15 else "baja")
+    if total < MIN_INTERACCIONES:
+        return {"concordancia": None, "aprobados": aprobados, "interacciones": total,
+                "confianza": "baja", "motivo": "datos insuficientes"}
+    return {"concordancia": round(aprobados / total * 100, 1), "aprobados": aprobados,
+            "interacciones": total, "confianza": confianza, "motivo": "ok"}
+
+
 if not os.path.exists(MODEL_PATH):
     try:
         train_model()
