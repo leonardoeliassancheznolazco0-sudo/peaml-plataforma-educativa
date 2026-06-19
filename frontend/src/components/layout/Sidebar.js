@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "../../context/AuthContext";
-import { Brain, LayoutDashboard, Star, Users, Settings, LogOut, ClipboardList, BookOpen, UserPlus, FileQuestion, AlertTriangle, Layers } from "lucide-react";
+import { Brain, LayoutDashboard, Star, Users, Settings, LogOut, ClipboardList, BookOpen, UserPlus, FileQuestion, AlertTriangle, Layers, Info } from "lucide-react";
 
 const studentLinks = [
   { href: "/student/dashboard", icon: LayoutDashboard, label: "Mi Panel" },
@@ -28,7 +28,7 @@ const adminLinks = [
   { href: "/teacher/quiz-create", icon: FileQuestion, label: "Gestión de Contenidos" },
   { href: "/alerts", icon: AlertTriangle, label: "Alertas" },
   { href: "/clusters", icon: Layers, label: "Grupos" },
-  { href: "/admin/settings", icon: Settings, label: "Configuración" },
+  { href: "/admin/settings", icon: Info, label: "Acerca de" },
 ];
 
 export default function Sidebar() {
