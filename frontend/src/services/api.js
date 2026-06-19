@@ -46,6 +46,7 @@ export const recommendationsAPI = {
 export const mlAPI = {
   predict: (data) => api.post("/ml/predict", data),
   retrain: () => api.post("/ml/train"),
+  coherence: () => api.get("/ml/coherence"),
 };
 
 export const dashboardAPI = {

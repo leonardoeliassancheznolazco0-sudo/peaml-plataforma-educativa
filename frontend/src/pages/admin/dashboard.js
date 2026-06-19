@@ -7,24 +7,23 @@ import { Users, BookOpen, ClipboardList, Activity, CheckCircle, RefreshCw } from
 export default function AdminDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [retraining, setRetraining] = useState(false);
   const [students, setStudents] = useState([]);
-  const [trainResult, setTrainResult] = useState(null);
+  const [coherence, setCoherence] = useState(null);
+  const [recalc, setRecalc] = useState(false);
 
   useEffect(() => {
     dashboardAPI.admin().then(r => setData(r.data)).catch(() => {}).finally(() => setLoading(false));
     managementAPI.listAllStudents().then(r => setStudents(r.data)).catch(() => {});
+    mlAPI.coherence().then(r => setCoherence(r.data)).catch(() => {});
   }, []);
 
-  const handleRetrain = async () => {
-    setRetraining(true);
+  const handleRecalc = async () => {
+    setRecalc(true);
     try {
-      const r = await mlAPI.retrain();
-      setTrainResult(r.data);
-    } catch {
-      setTrainResult({ message: "Error al reentrenar" });
-    } finally {
-      setRetraining(false);
+      const r = await mlAPI.coherence();
+      setCoherence(r.data);
+    } catch {} finally {
+      setRecalc(false);
     }
   };
 
@@ -139,31 +138,35 @@ export default function AdminDashboard() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="font-bold text-gray-700">Modelo ML</h2>
-              <p className="text-sm text-gray-500">DecisionTreeClassifier · scikit-learn · 600 registros</p>
+              <p className="text-sm text-gray-500">Reglas de nivel y recomendación + K-Means (no supervisado). Métrica honesta: coherencia.</p>
             </div>
-            <button onClick={handleRetrain} disabled={retraining} className="btn-primary flex items-center gap-2 text-sm">
-              <RefreshCw className={`w-4 h-4 ${retraining ? "animate-spin" : ""}`} />
-              {retraining ? "Entrenando..." : "Reentrenar Modelo"}
+            <button onClick={handleRecalc} disabled={recalc} className="btn-primary flex items-center gap-2 text-sm">
+              <RefreshCw className={`w-4 h-4 ${recalc ? "animate-spin" : ""}`} />
+              {recalc ? "Calculando..." : "Recalcular coherencia"}
             </button>
           </div>
-          {trainResult && (
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-700">
-              ✅ {trainResult.message}
-              {trainResult.metrics && <span className="ml-2">· Accuracy: {(trainResult.metrics.accuracy * 100).toFixed(1)}%</span>}
-            </div>
-          )}
-          <div className="grid grid-cols-3 gap-4 mt-4">
+
+          <div className="bg-primary-50 rounded-2xl p-5 text-center mb-4">
+            <div className="text-4xl font-black text-primary-700">{coherence ? `${coherence.coherencia}%` : "—"}</div>
+            <div className="text-sm text-primary-600 mt-1">Coherencia de recomendaciones</div>
+            <div className="text-xs text-gray-500 mt-1">{coherence?.criterio || "≥ 2 de 3 criterios (nivel, perfil, preferencia)"}</div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
             {[
-              { label: "Algoritmo", value: "DecisionTree" },
-              { label: "Features", value: "6 variables" },
-              { label: "Dataset", value: "600 registros" },
+              { label: "Recs coherentes", value: coherence ? `${coherence.recomendaciones_coherentes}/${coherence.total_recomendaciones}` : "—" },
+              { label: "Estudiantes", value: coherence?.estudiantes_evaluados ?? "—" },
+              { label: "Modelo", value: "Reglas + K-Means" },
             ].map(m => (
-              <div key={m.label} className="bg-primary-50 rounded-xl p-3 text-center">
-                <div className="font-bold text-primary-700">{m.value}</div>
-                <div className="text-xs text-primary-500">{m.label}</div>
+              <div key={m.label} className="bg-gray-50 rounded-xl p-3 text-center">
+                <div className="font-bold text-gray-700 text-sm">{m.value}</div>
+                <div className="text-xs text-gray-500">{m.label}</div>
               </div>
             ))}
           </div>
+          <p className="text-xs text-gray-400 mt-3">
+            No se reporta accuracy clínico: no es medible sin datos reales validados por un profesional. La coherencia mide el output real del recomendador y es verificable a mano.
+          </p>
         </div>
       </div>
     </DashboardLayout>
