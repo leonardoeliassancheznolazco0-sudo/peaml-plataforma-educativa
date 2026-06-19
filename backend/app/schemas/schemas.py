@@ -46,6 +46,7 @@ class StudentOut(BaseModel):
     sessions_count: Optional[int]
     diagnosis_confirmed: Optional[bool] = None
     assessment_done: Optional[bool] = None
+    assessment_unlocked: Optional[bool] = None
 
     class Config:
         from_attributes = True

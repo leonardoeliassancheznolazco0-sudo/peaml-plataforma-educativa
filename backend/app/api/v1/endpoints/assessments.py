@@ -22,7 +22,7 @@ def create_assessment(
         raise HTTPException(status_code=404, detail="Perfil de estudiante no encontrado")
     if student.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="No puedes crear evaluaciones para otro estudiante")
-    if student.assessment_done:
+    if student.assessment_done and not student.assessment_unlocked:
         raise HTTPException(status_code=400, detail="Ya completaste tu evaluación inicial")
 
     # El PERFIL lo decide el humano: si el docente lo confirmó, su diagnóstico oficial manda

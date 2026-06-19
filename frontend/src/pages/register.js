@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import Head from "next/head";
 import { authAPI } from "../services/api";
-import { Brain, AlertCircle, CheckCircle, Info } from "lucide-react";
+import { Brain, AlertCircle, CheckCircle, Info, ArrowLeft } from "lucide-react";
 
 export default function RegisterPage() {
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "student" });
@@ -107,6 +107,12 @@ export default function RegisterPage() {
               <Link href="/login" className="text-primary-600 font-semibold hover:underline">Inicia sesión</Link>
             </p>
           </div>
+
+          <p className="text-center mt-6">
+            <Link href="/" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-primary-600">
+              <ArrowLeft className="w-4 h-4" /> Volver al inicio
+            </Link>
+          </p>
         </div>
       </div>
     </>

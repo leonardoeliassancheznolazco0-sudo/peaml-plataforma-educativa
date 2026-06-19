@@ -81,13 +81,18 @@ export default function TeacherStudents() {
     }
   };
 
-  const handleReopen = async (studentId) => {
+  const handleUnlock = async (studentId, current) => {
     try {
-      await managementAPI.updateStudentProfile(studentId, { assessment_done: false });
-      setMsg({ type: "success", text: "Evaluación reabierta (modo dev) — el estudiante puede volver a hacerla" });
+      await managementAPI.updateStudentProfile(studentId, { assessment_unlocked: !current });
+      setMsg({
+        type: "success",
+        text: !current
+          ? "Evaluación libre ACTIVADA (dev): el estudiante puede repetirla infinitas veces"
+          : "Evaluación libre DESACTIVADA: queda bloqueada y cuenta la última",
+      });
       fetchData();
     } catch {
-      setMsg({ type: "error", text: "Error al reabrir la evaluación" });
+      setMsg({ type: "error", text: "Error al cambiar el modo de evaluación" });
     }
   };
 
@@ -255,12 +260,10 @@ export default function TeacherStudents() {
                             Activar
                           </button>
                         )}
-                        {s.assessment_done && (
-                          <button onClick={() => handleReopen(s.student_id)}
-                            className="text-xs text-blue-600 hover:underline font-medium text-left">
-                            Reabrir eval (dev)
-                          </button>
-                        )}
+                        <button onClick={() => handleUnlock(s.student_id, s.assessment_unlocked)}
+                          className={`text-xs font-medium text-left hover:underline ${s.assessment_unlocked ? "text-amber-600" : "text-blue-600"}`}>
+                          {s.assessment_unlocked ? "Eval libre: ON (dev)" : "Eval libre: OFF"}
+                        </button>
                       </div>
                     </td>
                   </tr>

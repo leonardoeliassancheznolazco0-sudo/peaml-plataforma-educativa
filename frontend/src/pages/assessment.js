@@ -54,7 +54,7 @@ export default function AssessmentPage() {
   useEffect(() => {
     if (!user || user.role !== "student") { setChecking(false); return; }
     studentsAPI.me()
-      .then((r) => setAlreadyDone(!!r.data?.assessment_done))
+      .then((r) => setAlreadyDone(!!r.data?.assessment_done && !r.data?.assessment_unlocked))
       .catch(() => {})
       .finally(() => setChecking(false));
   }, [user]);
