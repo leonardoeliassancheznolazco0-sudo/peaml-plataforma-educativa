@@ -11,6 +11,18 @@ import os
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "peaml_model.joblib")
 ENCODER_PATH = os.path.join(BASE_DIR, "peaml_encoders.joblib")
+
+
+# ============================================================
+#  INTERRUPTOR DE VIVISECCIÓN
+#  Cambiar a True para que el modelo imprima sus variables
+#  internas paso a paso en la terminal del backend.
+#  Dejar en False en uso normal (no afecta a la aplicación).
+# ============================================================
+VERBOSE = False
+_LINEA = "-" * 60   # separador para demarcar la salida de cada parte del modelo
+
+
 def generate_dataset(n=500):
     np.random.seed(42)
     profiles = ["TEA", "TDAH", "dislexia", "general"]
@@ -148,6 +160,11 @@ def get_content_recommendations(student_data: dict, contents: list, rendimiento_
     profile = student_data.get("cognitive_profile", "general")
     pref = student_data.get("preferencia_contenido", "visual")
 
+    if VERBOSE:
+        print("\n" + _LINEA)
+        print("[RECOMENDADOR] Pesos: nivel=0.4 | perfil=0.4 | tipo=0.2 | umbral coherencia=0.6")
+        print(f"[RECOMENDADOR] Estudiante -> nivel={nivel}, perfil={profile}, preferencia={pref}")
+
     scored = []
     for c in contents:
         match = 0.0
@@ -167,17 +184,27 @@ def get_content_recommendations(student_data: dict, contents: list, rendimiento_
             "ranking": round(ranking, 3),
             "reto": False,
         })
+        if VERBOSE:
+            print(f"[RECOMENDADOR]  - '{c.get('title')}' (niv={c.get('level')}, perf={c.get('recommended_profile')}, "
+                  f"tipo={c.get('content_type')}) -> match={round(match, 2)}, desempeño_real={avg_real}, ranking={round(ranking, 3)}")
 
     # Coherentes (>=2 de 3 criterios), ordenadas por ranking (coherencia + ML)
     coherentes = [s for s in scored if s["match_score"] >= 0.6]
     coherentes.sort(key=lambda x: x["ranking"], reverse=True)
     base = coherentes[:6] if coherentes else sorted(scored, key=lambda x: x["ranking"], reverse=True)[:3]
+    if VERBOSE:
+        print(f"[RECOMENDADOR] Coherentes (match>=0.6): {len(coherentes)} de {len(scored)}")
+        print(f"[RECOMENDADOR] Top mostrado: {[b.get('title') for b in base]}")
 
     # Reto del siguiente nivel
     reto = _reto_siguiente_nivel(nivel, contents, profile, rendimiento, base)
     if reto:
         base = base + [reto]
+        if VERBOSE:
+            print(f"[RECOMENDADOR] Reto para subir (nivel siguiente): '{reto.get('title')}'")
 
+    if VERBOSE:
+        print(_LINEA)
     return base
 
 
@@ -231,7 +258,17 @@ def nivel_por_desempeno(resultados, nivel_actual="basico"):
       - Si reprueba (score < UMBRAL_REPROBAR) FALLAS_PARA_BAJAR veces seguidas en su nivel
         actual, baja un nivel.
     """
+    if VERBOSE:
+        print("\n" + _LINEA)
+        print("[NIVEL] Cálculo de nivel por desempeño (progresión por reto)")
+        print(f"[NIVEL] Parámetros: aprobar>={UMBRAL_APROBAR} | reprobar<{UMBRAL_REPROBAR} | "
+              f"min_aprobadas_para_subir={MIN_APROBADAS_PARA_SUBIR} | fallas_para_bajar={FALLAS_PARA_BAJAR}")
+        print(f"[NIVEL] Nivel actual: {nivel_actual}")
+        print(f"[NIVEL] Historial ({len(resultados)} quizzes): {resultados}")
+
     if not resultados:
+        if VERBOSE:
+            print(f"[NIVEL] Sin historial -> se mantiene el nivel actual: {nivel_actual}\n")
         return nivel_actual
 
     # 1) contar quizzes APROBADOS por nivel de contenido
@@ -241,6 +278,8 @@ def nivel_por_desempeno(resultados, nivel_actual="basico"):
             cl = r.get("content_level")
             if cl in aprobadas:
                 aprobadas[cl] += 1
+    if VERBOSE:
+        print(f"[NIVEL] Paso 1 - quizzes aprobados por nivel: {aprobadas}")
 
     # 2) nivel = el más alto que alcance el mínimo de aprobadas (básico es el piso)
     nivel_idx = 0
@@ -248,6 +287,9 @@ def nivel_por_desempeno(resultados, nivel_actual="basico"):
         if aprobadas[NIVELES[i]] >= MIN_APROBADAS_PARA_SUBIR:
             nivel_idx = i
             break
+    if VERBOSE:
+        print(f"[NIVEL] Paso 2 - nivel más alto con >= {MIN_APROBADAS_PARA_SUBIR} aprobadas: "
+              f"{NIVELES[nivel_idx]} (idx={nivel_idx})")
 
     # 3) ¿baja? fallas consecutivas recientes en el nivel calculado
     nivel_str = NIVELES[nivel_idx]
@@ -259,9 +301,16 @@ def nivel_por_desempeno(resultados, nivel_actual="basico"):
             consecutivas += 1
         else:
             break
+    if VERBOSE:
+        print(f"[NIVEL] Paso 3 - reprobadas seguidas en '{nivel_str}': {consecutivas}")
     if consecutivas >= FALLAS_PARA_BAJAR and nivel_idx > 0:
         nivel_idx -= 1
+        if VERBOSE:
+            print(f"[NIVEL] Baja un nivel por reprobar seguido -> {NIVELES[nivel_idx]}")
 
+    if VERBOSE:
+        print(f"[NIVEL] RESULTADO -> {NIVELES[nivel_idx]}")
+        print(_LINEA)
     return NIVELES[nivel_idx]
 
 
@@ -287,7 +336,14 @@ def calidad_item(respuestas):
     Si hay menos de MIN_RESPUESTAS_ITEM respuestas, no juzga (datos insuficientes).
     """
     n = len(respuestas)
+    if VERBOSE:
+        print("\n" + _LINEA)
+        print(f"[CALIDAD ITEM] respuestas={n} (mín para evaluar={MIN_RESPUESTAS_ITEM}, "
+              f"umbral discriminación={UMBRAL_DISCRIMINACION})")
     if n < MIN_RESPUESTAS_ITEM:
+        if VERBOSE:
+            print("[CALIDAD ITEM] -> datos insuficientes")
+            print(_LINEA)
         return {"n": n, "dificultad": None, "discriminacion": None, "mala": False, "motivo": "datos insuficientes"}
 
     correctas = sum(1 for r in respuestas if r["is_correct"])
@@ -300,15 +356,23 @@ def calidad_item(respuestas):
     p_alto = sum(1 for r in alto if r["is_correct"]) / len(alto)
     p_bajo = sum(1 for r in bajo if r["is_correct"]) / len(bajo)
     discriminacion = round(p_alto - p_bajo, 2)
+    if VERBOSE:
+        print(f"[CALIDAD ITEM] dificultad(p-value)={round(dificultad, 2)} | "
+              f"aciertos grupo alto={round(p_alto, 2)}, grupo bajo={round(p_bajo, 2)} -> discriminación={discriminacion}")
 
     base = {"n": n, "dificultad": round(dificultad, 2), "discriminacion": discriminacion}
     if dificultad >= 0.95:
-        return {**base, "mala": True, "motivo": "casi todos aciertan (muy fácil)"}
-    if dificultad <= 0.05:
-        return {**base, "mala": True, "motivo": "casi todos fallan (revisar)"}
-    if discriminacion < UMBRAL_DISCRIMINACION:
-        return {**base, "mala": True, "motivo": "baja discriminación"}
-    return {**base, "mala": False, "motivo": "ok"}
+        resultado = {**base, "mala": True, "motivo": "casi todos aciertan (muy fácil)"}
+    elif dificultad <= 0.05:
+        resultado = {**base, "mala": True, "motivo": "casi todos fallan (revisar)"}
+    elif discriminacion < UMBRAL_DISCRIMINACION:
+        resultado = {**base, "mala": True, "motivo": "baja discriminación"}
+    else:
+        resultado = {**base, "mala": False, "motivo": "ok"}
+    if VERBOSE:
+        print(f"[CALIDAD ITEM] -> mala={resultado['mala']} ({resultado['motivo']})")
+        print(_LINEA)
+    return resultado
 
 
 # =====================================================================
@@ -329,7 +393,13 @@ def agrupar_estudiantes(estudiantes, k=None):
     """
     k = k or N_CLUSTERS
     n = len(estudiantes)
+    if VERBOSE:
+        print("\n" + _LINEA)
+        print(f"[CLUSTERING] K-Means | estudiantes={n} | k pedido={k}")
     if n == 0:
+        if VERBOSE:
+            print("[CLUSTERING] sin estudiantes -> []")
+            print(_LINEA)
         return []
     k = max(1, min(k, n))  # no puede haber más grupos que estudiantes
 
@@ -340,10 +410,17 @@ def agrupar_estudiantes(estudiantes, k=None):
         e.get("nivel_idx", 0),
     ] for e in estudiantes], dtype=float)
 
+    if VERBOSE:
+        print(f"[CLUSTERING] k usado={k} | características por estudiante [promedio, num_quizzes, tiempo_prom, nivel_idx]:")
+        for e, fila in zip(estudiantes, X):
+            print(f"[CLUSTERING]   {e.get('name')}: {list(fila)}")
+
     # estandarizar porque las variables están en escalas distintas
     X_scaled = StandardScaler().fit_transform(X)
     modelo = KMeans(n_clusters=k, random_state=42, n_init=10)
     etiquetas = modelo.fit_predict(X_scaled)
+    if VERBOSE:
+        print(f"[CLUSTERING] etiqueta de grupo asignada a cada estudiante: {list(etiquetas)}")
 
     grupos = {}
     for e, lab in zip(estudiantes, etiquetas):
@@ -376,6 +453,11 @@ def agrupar_estudiantes(estudiantes, k=None):
     resultado.sort(key=lambda g: g["promedio"], reverse=True)
     for i, g in enumerate(resultado, start=1):
         g["grupo"] = i
+    if VERBOSE:
+        for g in resultado:
+            print(f"[CLUSTERING] Grupo {g['grupo']} ({g['etiqueta']}, prom {g['promedio']}%): "
+                  f"{[m['name'] for m in g['miembros']]}")
+        print(_LINEA)
     return resultado
 
 
@@ -397,6 +479,9 @@ def metrica_coherencia(estudiantes, contents, top_n=5):
     estudiantes: lista de dicts con current_level, cognitive_profile, learning_preference.
     contents: lista de dicts con level, recommended_profile, content_type.
     """
+    if VERBOSE:
+        print("\n" + _LINEA)
+        print(f"[COHERENCIA] estudiantes={len(estudiantes)}, contenidos={len(contents)}, top_n={top_n}, umbral=0.6")
     total = 0
     coherentes = 0
     for e in estudiantes:
@@ -419,6 +504,9 @@ def metrica_coherencia(estudiantes, contents, top_n=5):
         coherentes += sum(1 for s in top if s >= 0.6)
 
     coherencia = round((coherentes / total) * 100, 1) if total else 0.0
+    if VERBOSE:
+        print(f"[COHERENCIA] recomendaciones coherentes={coherentes} / total={total} -> {coherencia}%")
+        print(_LINEA)
     return {
         "coherencia": coherencia,
         "recomendaciones_coherentes": coherentes,
@@ -454,9 +542,18 @@ def concordancia_desempeno(interacciones):
     total = len(interacciones)
     aprobados = sum(1 for i in interacciones if i.get("aprobado"))
     confianza = "alta" if total >= 30 else ("media" if total >= 15 else "baja")
+    if VERBOSE:
+        print("\n" + _LINEA)
+        print(f"[CONCORDANCIA] quizzes resueltos={total}, aprobados={aprobados}, mín={MIN_INTERACCIONES}")
     if total < MIN_INTERACCIONES:
+        if VERBOSE:
+            print("[CONCORDANCIA] -> datos insuficientes")
+            print(_LINEA)
         return {"concordancia": None, "aprobados": aprobados, "interacciones": total,
                 "confianza": "baja", "motivo": "datos insuficientes"}
+    if VERBOSE:
+        print(f"[CONCORDANCIA] -> {round(aprobados / total * 100, 1)}% aprobados (confianza {confianza})")
+        print(_LINEA)
     return {"concordancia": round(aprobados / total * 100, 1), "aprobados": aprobados,
             "interacciones": total, "confianza": confianza, "motivo": "ok"}
 
