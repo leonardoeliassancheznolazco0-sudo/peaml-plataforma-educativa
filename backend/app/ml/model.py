@@ -379,6 +379,56 @@ def agrupar_estudiantes(estudiantes, k=None):
     return resultado
 
 
+# =====================================================================
+#  Métrica de COHERENCIA (reemplaza el accuracy sintético inventado)
+# =====================================================================
+
+def metrica_coherencia(estudiantes, contents, top_n=5):
+    """
+    Métrica honesta y verificable que reemplaza el accuracy sintético.
+
+    Coherencia (%) = recomendaciones coherentes / total recomendaciones * 100,
+    donde una recomendación es 'coherente' si cumple AL MENOS 2 de 3 criterios:
+    nivel, perfil cognitivo y preferencia (0.4 + 0.4 + 0.2  ->  >= 0.6).
+
+    Se mide sobre el top-N por la regla, SIN el filtro de coherencia del
+    recomendador, para que el número sea una medición real (no trivialmente 100%).
+
+    estudiantes: lista de dicts con current_level, cognitive_profile, learning_preference.
+    contents: lista de dicts con level, recommended_profile, content_type.
+    """
+    total = 0
+    coherentes = 0
+    for e in estudiantes:
+        nivel = e.get("current_level") or "basico"
+        profile = e.get("cognitive_profile") or "general"
+        pref = e.get("learning_preference") or "visual"
+        puntajes = []
+        for c in contents:
+            s = 0.0
+            if c.get("level") == nivel:
+                s += 0.4
+            if c.get("recommended_profile") == profile:
+                s += 0.4
+            if c.get("content_type") == pref:
+                s += 0.2
+            puntajes.append(round(s, 2))
+        puntajes.sort(reverse=True)
+        top = puntajes[:top_n]
+        total += len(top)
+        coherentes += sum(1 for s in top if s >= 0.6)
+
+    coherencia = round((coherentes / total) * 100, 1) if total else 0.0
+    return {
+        "coherencia": coherencia,
+        "recomendaciones_coherentes": coherentes,
+        "total_recomendaciones": total,
+        "criterio": ">= 2 de 3 (nivel, perfil, preferencia)",
+        "estudiantes_evaluados": len(estudiantes),
+        "top_n": top_n,
+    }
+
+
 if not os.path.exists(MODEL_PATH):
     try:
         train_model()

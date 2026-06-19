@@ -3,11 +3,12 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.models.content import Content
+from app.models.student import Student
 from app.models.user import User
 from app.schemas.schemas import MLPredictInput, MLPredictOutput
-from app.ml.model import predict_level, get_content_recommendations, train_model
+from app.ml.model import predict_level, get_content_recommendations, train_model, metrica_coherencia
 from app.db.redis_client import cache_set, cache_get
-from app.core.security import get_current_user, require_admin
+from app.core.security import get_current_user, require_admin, require_teacher
 
 router = APIRouter()
 
@@ -63,9 +64,9 @@ def predict(
         "perfil_detectado": prediction["perfil_detectado"],
         "recomendaciones": recs,
         "metricas": {
-            "accuracy": 0.87,
-            "model": "DecisionTreeClassifier",
-            "features": 6,
+            "modelo": "Reglas de nivel/recomendación + K-Means (no supervisado)",
+            "metrica_principal": "coherencia de recomendaciones (ver GET /ml/coherence)",
+            "nota": "No se reporta accuracy clínico: no es medible sin datos reales validados por un profesional.",
         },
     }
 
@@ -77,3 +78,29 @@ def predict(
 def retrain(current_user: User = Depends(require_admin)):
     metrics = train_model()
     return {"message": "Modelo reentrenado exitosamente", "metrics": metrics}
+
+
+@router.get("/coherence")
+def coherence(
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    """Métrica honesta del sistema: % de recomendaciones coherentes (>= 2 de 3
+    criterios) sobre los estudiantes y contenidos reales. Reemplaza al accuracy sintético."""
+    estudiantes = [
+        {
+            "current_level": s.current_level,
+            "cognitive_profile": s.cognitive_profile,
+            "learning_preference": s.learning_preference,
+        }
+        for s in db.query(Student).all()
+    ]
+    contents = [
+        {
+            "level": c.level,
+            "recommended_profile": c.recommended_profile,
+            "content_type": c.content_type,
+        }
+        for c in db.query(Content).all()
+    ]
+    return metrica_coherencia(estudiantes, contents)
